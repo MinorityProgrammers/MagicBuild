@@ -20,55 +20,60 @@ const loadData = () => {
         clientListData[index].abi = abi;
       }
     });
-    console.log(clientListData);
     State.update({ clientList: clientListData });
   }
 };
 loadData();
 const saveClient = () => {
-  asyncFetch("https://rpc.near.org/", {
-    body: JSON.stringify({
-      method: "query",
-      params: {
-        request_type: "view_code",
-        account_id: state.contractAddress,
-        finality: "final",
-      },
-      id: 154,
-      jsonrpc: "2.0",
-    }),
-    headers: {
-      "Content-Type": "application/json",
-    },
-    method: "POST",
-  }).then((res) => {
-    if (res.body.result.code_base64) {
-      const data = state.clientList;
-      const clientData = {
-        id: Date.now(),
-        name: state.clientName,
-        address: state.clientContract,
-        archived: false,
-        abi: null,
-      };
-      data.push(clientData);
-      const saveData = {
-        magicbuild: {
-          clientlist: data,
+  if (state.clientName.length < 5) {
+    State.update({
+      error: "Name requires more than 5 characters",
+    });
+  } else {
+    asyncFetch("https://rpc.near.org/", {
+      body: JSON.stringify({
+        method: "query",
+        params: {
+          request_type: "view_code",
+          account_id: state.clientContract,
+          finality: "final",
         },
-      };
-      Social.set(saveData, {
-        force: true,
-        onCommit: () => {},
-        onCancel: () => {},
-      });
-    } else {
-      State.update({
-        error:
-          "Unable to save Account ID because the contract has not been deployed yet!",
-      });
-    }
-  });
+        id: 154,
+        jsonrpc: "2.0",
+      }),
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    }).then((res) => {
+      if (res.body.result.code_base64) {
+        const data = state.clientList;
+        const clientData = {
+          id: Date.now(),
+          name: state.clientName,
+          address: state.clientContract,
+          archived: false,
+          abi: null,
+        };
+        data.push(clientData);
+        const saveData = {
+          magicbuild: {
+            clientlist: data,
+          },
+        };
+        Social.set(saveData, {
+          force: true,
+          onCommit: () => {},
+          onCancel: () => {},
+        });
+      } else {
+        State.update({
+          error:
+            "Unable to save Account ID because the contract has not been deployed yet!",
+        });
+      }
+    });
+  }
 };
 const Wrapper = styled.div`
 .nav-pills .nav-link.active, .nav-pills .show>.nav-link {
