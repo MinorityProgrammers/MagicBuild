@@ -208,7 +208,7 @@ return (
                   {state.clientList.length == 0 && (
                     <button
                       type="button"
-                      class="btn btn-dark btn-sm"
+                      class="btn btn-sm"
                       data-bs-toggle="modal"
                       data-bs-target="#createClient"
                     >
