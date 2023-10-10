@@ -1,9 +1,10 @@
-State.init({ clientName: "", clientContract: "", clientList: [] });
+State.init({ clientName: "", clientContract: "", clientList: [], error });
 const onInputChangeClientName = ({ target }) => {
-  State.update({ clientName: target.value.replaceAll(" ", "-") });
+  State.update({ clientName: target.value });
 };
 const onInputChangeClientContract = ({ target }) => {
-  State.update({ clientContract: target.value.replaceAll(" ", "-") });
+  State.update({ error: null });
+  State.update({ clientContract: target.value });
 };
 
 const loadData = () => {
@@ -25,24 +26,48 @@ const loadData = () => {
 };
 loadData();
 const saveClient = () => {
-  const data = state.clientList;
-  const clientData = {
-    id: Date.now(),
-    name: state.clientName,
-    address: state.clientContract,
-    archived: false,
-    abi: null,
-  };
-  data.push(clientData);
-  const saveData = {
-    magicbuild: {
-      clientlist: data,
+  asyncFetch("https://rpc.near.org/", {
+    body: JSON.stringify({
+      method: "query",
+      params: {
+        request_type: "view_code",
+        account_id: state.contractAddress,
+        finality: "final",
+      },
+      id: 154,
+      jsonrpc: "2.0",
+    }),
+    headers: {
+      "Content-Type": "application/json",
     },
-  };
-  Social.set(saveData, {
-    force: true,
-    onCommit: () => {},
-    onCancel: () => {},
+    method: "POST",
+  }).then((res) => {
+    if (res.body.result.code_base64) {
+      const data = state.clientList;
+      const clientData = {
+        id: Date.now(),
+        name: state.clientName,
+        address: state.clientContract,
+        archived: false,
+        abi: null,
+      };
+      data.push(clientData);
+      const saveData = {
+        magicbuild: {
+          clientlist: data,
+        },
+      };
+      Social.set(saveData, {
+        force: true,
+        onCommit: () => {},
+        onCancel: () => {},
+      });
+    } else {
+      State.update({
+        error:
+          "Unable to save Account ID because the contract has not been deployed yet!",
+      });
+    }
   });
 };
 const Wrapper = styled.div`
@@ -143,9 +168,17 @@ return (
                                 onChange={(e) => onInputChangeClientContract(e)}
                               />
                             </div>
-                            <small class="form-text text-muted">
-                              A new Client will be created.
-                            </small>
+                            {!state.error && (
+                              <small class="form-text text-muted">
+                                A new Client will be created.
+                              </small>
+                            )}
+
+                            {state.error && (
+                              <p class="text-danger" role="alert">
+                                {state.error}
+                              </p>
+                            )}
                           </div>
                           <div class="modal-footer">
                             <button
