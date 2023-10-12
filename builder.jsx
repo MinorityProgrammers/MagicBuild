@@ -161,6 +161,7 @@ const getMethodFromSource = () => {
                 method.kind = "call";
               }
             }
+            //return method
             abiMethod.push(method);
             State.update({ cMethod: abiMethod });
             abiMethod.forEach((item, index) => {
@@ -168,6 +169,7 @@ const getMethodFromSource = () => {
             });
           });
         });
+        // call getArgsFromMethod
       } else {
         State.update({ cMerr: "Unable to detect Method!" });
       }
