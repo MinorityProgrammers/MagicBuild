@@ -1,6 +1,6 @@
 State.init({
   cMethod: props.cMethod,
-  widgetName: `MagicBuilder-widget-form-${Date.now()}`,
+  widgetName: `MagicBuild-widget-form-${Date.now()}`,
 });
 const onSwitchChangeArgExport = (fIndex) => {
   const abiMethod = state.cMethod;
@@ -69,7 +69,7 @@ const exportForm = () => {
         "":
           "const user = context.accountId;\r\nconst props = " +
           JSON.stringify(abi).replaceAll("\\", "") +
-          " \r\n\r\nreturn (\r\n  <>\r\n    <Widget src={'magicbuilder.near/widget/widget'} props={props} />\r\n  </>\r\n);\r\n",
+          " \r\n\r\nreturn (\r\n  <>\r\n    <Widget src={'magicbuild.near/widget/widget'} props={props} />\r\n  </>\r\n);\r\n",
       },
     },
   };
