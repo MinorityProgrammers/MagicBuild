@@ -263,9 +263,9 @@ const getArgsFromMethod = (fName, fIndex) => {
       const argsArr = abiMethod[fIndex].params.args;
       const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
       const args = {};
-      //   argMap.forEach((item) => {
-      //     Object.assign(args, item);
-      //   });
+      argMap.forEach((item) => {
+        Object.assign(args, item);
+      });
       const res = fetch(state.rpcUrl, {
         body: JSON.stringify({
           method: "query",
@@ -667,7 +667,7 @@ return (
                           <option value="boolean">Boolean</option>
                           <option value="json">Json</option>
                           <option value="array">Array</option>
-                          <option value="$ref">Account ID</option>
+                          <option value="$ref">AccountID</option>
                         </select>
                       </div>
                       <div class="form-group col-md-4">
