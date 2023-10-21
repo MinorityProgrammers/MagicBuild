@@ -215,8 +215,12 @@ const getMethodFromSource = () => {
         // fix setinterval
         getArgsFromMethod(item.name, index);
       });
-    } else State.update({ cMerr: "Unable to detect Method!" });
-  } else State.update({ cMerr: "Unable to detect Method!" });
+    } else {
+      State.update({ cMerr: "Unable to detect Method!" });
+    }
+  } else {
+    State.update({ cMerr: "Unable to detect Method!" });
+  }
 };
 const getArgsFromMethod = (fName, fIndex) => {
   const res = fetch(
