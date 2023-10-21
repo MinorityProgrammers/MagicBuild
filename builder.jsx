@@ -468,7 +468,7 @@ const onBtnClickCall = (fName, action, fIndex) => {
   }
 };
 return (
-  <div class="row">
+  <>
     <div class="container border rounded p-3 border-2">
       <h3 class="text-center">Contract</h3>
       <div class="row mb-3">
@@ -526,13 +526,23 @@ return (
         </div>
       </div>
       <div class="row">
-        <div class="form-group col-md-12">
+        <div class="form-group col-md-6">
           {state.cMethod.length > 0 ? (
             <Widget src={`${cep}/widget/export-button`} props={state} />
           ) : (
             <>
               <label></label>
               <button class="btn btn-dark form-control ">🔼 Export</button>
+            </>
+          )}
+        </div>
+        <div class="form-group col-md-6">
+          {state.cMethod.length > 0 ? (
+            <Widget src={`${cep}/widget/preview-button`} props={state} />
+          ) : (
+            <>
+              <label></label>
+              <button class="btn btn-dark form-control ">👀 Preview</button>
             </>
           )}
         </div>
@@ -775,5 +785,5 @@ return (
           </div>
         </div>
       ))}
-  </div>
+  </>
 );
