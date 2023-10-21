@@ -19,6 +19,33 @@ const opGet = {
   headers: header,
   method: "GET",
 };
+const asyncIntervals = [];
+
+const runAsyncInterval = (cb, interval, intervalIndex) => {
+  cb();
+  if (asyncIntervals[intervalIndex].run) {
+    asyncIntervals[intervalIndex].id = setTimeout(
+      () => runAsyncInterval(cb, interval, intervalIndex),
+      interval
+    );
+  }
+};
+const setAsyncInterval = (cb, interval) => {
+  if (cb && typeof cb === "function") {
+    const intervalIndex = asyncIntervals.length;
+    asyncIntervals.push({ run: true, id: id });
+    runAsyncInterval(cb, interval, intervalIndex);
+    return intervalIndex;
+  } else {
+    throw new Error("Callback must be a function");
+  }
+};
+const clearAsyncInterval = (intervalIndex) => {
+  if (asyncIntervals[intervalIndex].run) {
+    clearTimeout(asyncIntervals[intervalIndex].id);
+    asyncIntervals[intervalIndex].run = false;
+  }
+};
 const cFunc = (e, type) => {
   const data = e.target.value;
   if (type == "name") State.update({ fName: data });
@@ -46,8 +73,8 @@ const cMLabel = (e, fIdx, type) => {
   const a = state.cMethod;
   if (type == "method") a[fIdx].label = value;
   if (type == "button") a[fIdx].button = value;
-  if (type == "gas") a[fIdx].gas = value;
-  if (type == "deposit") a[fIdx].deposit = value;
+  if (type == "gas") a[fIdx].gas = parseInt(value);
+  if (type == "deposit") a[fIdx].deposit = parseInt(value);
   if (type == "remove") a.splice(fIdx, 1);
   State.update({ cMethod: a });
 };
@@ -185,6 +212,7 @@ const getMethodFromSource = () => {
       });
       State.update({ cMethod: abiMethod });
       abiMethod.forEach((item, index) => {
+        // fix setinterval
         getArgsFromMethod(item.name, index);
       });
     } else State.update({ cMerr: "Unable to detect Method!" });
@@ -200,11 +228,15 @@ const getArgsFromMethod = (fName, fIndex) => {
     const argsData = JSON.parse(
       restxns.logs[0].replace("EVENT_JSON:", "").replaceAll("\\", "")
     );
-    const args = argsData.data[0];
-    console.log(fName, typeof args.token_ids);
+
+    const args = argsData.data[0] || {};
+
     if (Object.keys(args).length > 0) {
       const abiMethod = state.cMethod;
       abiMethod[fIndex].params.args = [];
+      argMap.forEach((item) => {
+        Object.assign(args, item);
+      });
       Object.keys(args).forEach((item) => {
         const arg = {
           name: item,
@@ -223,7 +255,7 @@ const getArgsFromMethod = (fName, fIndex) => {
       });
     }
   } else {
-    const getArg = setInterval(() => {
+    const getArg = setAsyncInterval(() => {
       const abiMethod = state.cMethod;
       const argsArr = abiMethod[fIndex].params.args;
       const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
@@ -250,13 +282,11 @@ const getArgsFromMethod = (fName, fIndex) => {
         method: "POST",
       });
       const strErr = res.body.result.error;
-
       if (strErr && strErr.includes("missing field")) {
         const argName = strErr.substring(
           strErr.indexOf("`") + 1,
           strErr.lastIndexOf("`")
         );
-
         const checkType = [
           { value: "", type: "string" },
           { value: 0, type: "integer" },
@@ -318,10 +348,10 @@ const getArgsFromMethod = (fName, fIndex) => {
                 ftch.includes("Option::unwrap()`")
               ) {
                 uS(argName, typeItem.type, typeItem.value);
-                clearInterval(getArg);
+                clearAsyncInterval(getArg);
               }
               if (ftch.includes("the account ID")) {
-                uS(argName, "$ref", context.account_id);
+                uS(argName, "$ref", state.contractAddress);
               }
               if (ftch.includes("unknown variant")) {
                 isCheck = true;
@@ -334,31 +364,36 @@ const getArgsFromMethod = (fName, fIndex) => {
                   .split(",");
                 uS(argName, "enum", getEnum);
               }
-
               if (ftch.includes("missing field")) {
                 uS(argName, typeItem.type, typeItem.value);
               }
-              if (
-                ftch.includes("Requires attached deposit") ||
-                ftch.includes("storage_write") ||
-                ftch.includes("predecessor_account_id")
-              ) {
-                abiMethod[fIndex].kind = "call";
-                State.update({ cMethod: abiMethod });
-                clearInterval(getArg);
-              }
-              if (ftch.includes("MethodNotFound") || res.body.result.result) {
-                clearInterval(getArg);
-              }
             } else {
               uS(argName, typeItem.type, typeItem.value);
-              clearInterval(getArg);
+              clearAsyncInterval(getArg);
             }
           }
         });
       }
+
+      if (strErr) {
+        if (strErr.includes("MethodNotFound") || res.body.result.result) {
+          clearAsyncInterval(getArg);
+        }
+        if (
+          strErr.includes("Requires attached deposit") ||
+          strErr.includes("storage_write") ||
+          strErr.includes("predecessor_account_id")
+        ) {
+          if (strErr.includes("Requires attached deposit")) {
+            abiMethod[fIndex].deposit = parseInt(strErr.match(/\d+/)[0]);
+          }
+          abiMethod[fIndex].kind = "call";
+          State.update({ cMethod: abiMethod });
+          clearAsyncInterval(getArg);
+        }
+      }
       setTimeout(() => {
-        clearInterval(getArg);
+        clearAsyncInterval(getArg);
       }, 10000);
     }, 1000);
   }
@@ -692,7 +727,7 @@ return (
                       <label>Attached deposit</label>
                       <input
                         type="text"
-                        defaultValue="0"
+                        defaultValue={"" + functions.deposit}
                         onChange={(e) => cMLabel(e, fIndex, "deposit")}
                         class="form-control"
                       />
