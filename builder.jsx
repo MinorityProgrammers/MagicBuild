@@ -57,7 +57,29 @@ const cAD = (e, fIdx, aIdx, type) => {
   if (type == "name") a[fIdx].params.args[aIdx].name = value;
   if (type == "label") a[fIdx].params.args[aIdx].label = value;
   if (type == "type") a[fIdx].params.args[aIdx].type_schema.type = value;
-  if (type == "value") a[fIdx].params.args[aIdx].value = value;
+  if (type == "value") {
+    if (a[fIdx].params.args[aIdx].type_schema.type == "integer") {
+      a[fIdx].params.args[aIdx].value = parseInt(value);
+    }
+    if (a[fIdx].params.args[aIdx].type_schema.type == "array") {
+      a[fIdx].params.args[aIdx].value = value.split("|"); //check valid
+    }
+    if (a[fIdx].params.args[aIdx].type_schema.type == "boolean") {
+      a[fIdx].params.args[aIdx].value = Boolean(value);
+    }
+    if (a[fIdx].params.args[aIdx].type_schema.type == "json") {
+      a[fIdx].params.args[aIdx].value = JSON.parse(value); //check valid
+    }
+    if (a[fIdx].params.args[aIdx].type_schema.type == "string") {
+      a[fIdx].params.args[aIdx].value = value; //check valid
+    }
+    if (a[fIdx].params.args[aIdx].type_schema.type == "enum") {
+      a[fIdx].params.args[aIdx].value = value; //check valid
+    }
+    if (a[fIdx].params.args[aIdx].type_schema.type == "$ref") {
+      a[fIdx].params.args[aIdx].value = value; //check account valid
+    }
+  }
   if (type == "remove") a[fIdx].params.args.splice(aIdx, 1);
   State.update({ cMethod: a });
 };
@@ -175,10 +197,11 @@ const getArgsFromMethod = (fName, fIndex) => {
   );
   const restxns = res.body.txns[0];
   if (restxns.outcomes.status && restxns.logs.length > 0) {
-    const args = JSON.parse(
+    const argsData = JSON.parse(
       restxns.logs[0].replace("EVENT_JSON:", "").replaceAll("\\", "")
     );
-    console.log("check", args);
+    const args = argsData.data[0];
+    console.log(fName, typeof args.token_ids);
     if (Object.keys(args).length > 0) {
       const abiMethod = state.cMethod;
       abiMethod[fIndex].params.args = [];
@@ -186,7 +209,12 @@ const getArgsFromMethod = (fName, fIndex) => {
         const arg = {
           name: item,
           type_schema: {
-            type: typeof args[item], //fix type number == integer
+            type:
+              typeof args[item] == "number"
+                ? "integer"
+                : typeof args[item] == "object"
+                ? "json"
+                : typeof args[item],
           },
           value: "",
         };
@@ -222,14 +250,16 @@ const getArgsFromMethod = (fName, fIndex) => {
         method: "POST",
       });
       const strErr = res.body.result.error;
+
       if (strErr && strErr.includes("missing field")) {
         const argName = strErr.substring(
           strErr.indexOf("`") + 1,
           strErr.lastIndexOf("`")
         );
+
         const checkType = [
           { value: "", type: "string" },
-          { value: 0, type: "number" },
+          { value: 0, type: "integer" },
           { value: [], type: "array" },
           { value: true, type: "boolean" },
           { value: "", type: "enum" },
@@ -266,8 +296,11 @@ const getArgsFromMethod = (fName, fIndex) => {
                 type_schema: {
                   type: type,
                 },
-                value: value,
+                value: type == "enum" ? value[0] : value,
               };
+              if (type == "enum") {
+                arg.enum = value;
+              }
               const isExist = false;
               abiMethod[fIndex].params.args.forEach((item) => {
                 if (item.name == argName) {
@@ -279,38 +312,46 @@ const getArgsFromMethod = (fName, fIndex) => {
                 State.update({ cMethod: abiMethod });
               }
             };
-            if (res.body.result.result || ftch.includes("Option::unwrap()`")) {
-              uS(argName, typeItem.type, typeItem.value);
-              clearInterval(getArg);
-            }
-            if (ftch.includes("the account ID")) {
-              uS(argName, "$ref", state.contractAddress);
-            }
-            if (ftch.includes("unknown variant")) {
-              isCheck = true;
-              const getEnum = ftch
-                .substring(
-                  ftch.indexOf("expected one of") + 17,
-                  ftch.lastIndexOf("\\")
-                )
-                .replaceAll("`", "")
-                .split(",");
-              uS(argName, typeItem.type, getEnum[0]);
-            }
+            if (ftch) {
+              if (
+                res.body.result.result ||
+                ftch.includes("Option::unwrap()`")
+              ) {
+                uS(argName, typeItem.type, typeItem.value);
+                clearInterval(getArg);
+              }
+              if (ftch.includes("the account ID")) {
+                uS(argName, "$ref", context.account_id);
+              }
+              if (ftch.includes("unknown variant")) {
+                isCheck = true;
+                const getEnum = ftch
+                  .substring(
+                    ftch.indexOf("expected one of") + 17,
+                    ftch.lastIndexOf("\\")
+                  )
+                  .replaceAll("`", "")
+                  .split(",");
+                uS(argName, "enum", getEnum);
+              }
 
-            if (ftch.includes("missing field")) {
+              if (ftch.includes("missing field")) {
+                uS(argName, typeItem.type, typeItem.value);
+              }
+              if (
+                ftch.includes("Requires attached deposit") ||
+                ftch.includes("storage_write") ||
+                ftch.includes("predecessor_account_id")
+              ) {
+                abiMethod[fIndex].kind = "call";
+                State.update({ cMethod: abiMethod });
+                clearInterval(getArg);
+              }
+              if (ftch.includes("MethodNotFound") || res.body.result.result) {
+                clearInterval(getArg);
+              }
+            } else {
               uS(argName, typeItem.type, typeItem.value);
-            }
-            if (
-              ftch.includes("Requires attached deposit") ||
-              ftch.includes("storage_write") ||
-              ftch.includes("predecessor_account_id")
-            ) {
-              abiMethod[fIndex].kind = "call";
-              State.update({ cMethod: abiMethod });
-              clearInterval(getArg);
-            }
-            if (ftch.includes("MethodNotFound") || res.body.result.result) {
               clearInterval(getArg);
             }
           }
@@ -573,19 +614,55 @@ return (
                           onChange={(e) => cAD(e, fIndex, argIndex, "type")}
                         >
                           <option value="string">String</option>
-                          <option value="number">Number</option>
+                          <option value="integer">Number</option>
+                          <option value="enum">Enum</option>
                           <option value="boolean">Boolean</option>
                           <option value="json">Json</option>
                           <option value="array">Array</option>
+                          <option value="$ref">Account ID</option>
                         </select>
                       </div>
                       <div class="form-group col-md-4">
-                        <input
-                          onChange={(e) => cAD(e, fIndex, argIndex, "value")}
-                          class="form-control"
-                          type="string"
-                          placeholder="Argument value"
-                        />
+                        {args.type_schema.type == "string" ||
+                        args.type_schema.type == "$ref" ||
+                        args.type_schema.type == "integer" ||
+                        args.type_schema.type == "json" ||
+                        args.type_schema.type == "array" ? (
+                          <input
+                            onChange={(e) => cAD(e, fIndex, argIndex, "value")}
+                            class="form-control"
+                            type="string"
+                            placeholder="Argument value"
+                          />
+                        ) : (
+                          ""
+                        )}
+                        {args.type_schema.type == "boolean" ? (
+                          <select
+                            defaultValue={args.type_schema.type}
+                            class="form-control"
+                            onChange={(e) => cAD(e, fIndex, argIndex, "value")}
+                          >
+                            <option value="true">True</option>
+                            <option value="false">False</option>
+                          </select>
+                        ) : (
+                          ""
+                        )}
+                        {args.type_schema.type == "enum" ? (
+                          <select
+                            defaultValue={args.type_schema.type}
+                            class="form-control"
+                            onChange={(e) => cAD(e, fIndex, argIndex, "value")}
+                          >
+                            {args.enum &&
+                              args.enum.map((item, i) => (
+                                <option value={item}>{item}</option>
+                              ))}
+                          </select>
+                        ) : (
+                          ""
+                        )}
                       </div>
                       <div class="form-group col-md-2">
                         <button
