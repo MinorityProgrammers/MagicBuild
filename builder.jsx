@@ -19,33 +19,6 @@ const opGet = {
   headers: header,
   method: "GET",
 };
-const asyncIntervals = [];
-
-const runAsyncInterval = (cb, interval, intervalIndex) => {
-  cb();
-  if (asyncIntervals[intervalIndex].run) {
-    asyncIntervals[intervalIndex].id = setTimeout(
-      () => runAsyncInterval(cb, interval, intervalIndex),
-      interval
-    );
-  }
-};
-const setAsyncInterval = (cb, interval) => {
-  if (cb && typeof cb === "function") {
-    const intervalIndex = asyncIntervals.length;
-    asyncIntervals.push({ run: true, id: id });
-    runAsyncInterval(cb, interval, intervalIndex);
-    return intervalIndex;
-  } else {
-    throw new Error("Callback must be a function");
-  }
-};
-const clearAsyncInterval = (intervalIndex) => {
-  if (asyncIntervals[intervalIndex].run) {
-    clearTimeout(asyncIntervals[intervalIndex].id);
-    asyncIntervals[intervalIndex].run = false;
-  }
-};
 const cFunc = (e, type) => {
   const data = e.target.value;
   if (type == "name") State.update({ fName: data });
@@ -258,7 +231,7 @@ const getArgsFromMethod = (fName, fIndex) => {
       });
     }
   } else {
-    const getArg = setAsyncInterval(() => {
+    const getArg = setInterval(() => {
       const abiMethod = state.cMethod;
       const argsArr = abiMethod[fIndex].params.args;
       const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
@@ -351,7 +324,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                 ftch.includes("Option::unwrap()`")
               ) {
                 uS(argName, typeItem.type, typeItem.value);
-                clearAsyncInterval(getArg);
+                clearInterval(getArg);
               }
               if (ftch.includes("the account ID")) {
                 uS(argName, "$ref", state.contractAddress);
@@ -372,7 +345,7 @@ const getArgsFromMethod = (fName, fIndex) => {
               }
             } else {
               uS(argName, typeItem.type, typeItem.value);
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
           }
         });
@@ -380,7 +353,7 @@ const getArgsFromMethod = (fName, fIndex) => {
 
       if (strErr) {
         if (strErr.includes("MethodNotFound") || res.body.result.result) {
-          clearAsyncInterval(getArg);
+          clearInterval(getArg);
         }
         if (
           strErr.includes("Requires attached deposit") ||
@@ -392,11 +365,11 @@ const getArgsFromMethod = (fName, fIndex) => {
           }
           abiMethod[fIndex].kind = "call";
           State.update({ cMethod: abiMethod });
-          clearAsyncInterval(getArg);
+          //clearInterval(getArg);
         }
       }
       setTimeout(() => {
-        clearAsyncInterval(getArg);
+        clearInterval(getArg);
       }, 10000);
     }, 1000);
   }
@@ -526,7 +499,7 @@ return (
         </div>
       </div>
       <div class="row">
-        <div class="form-group col-md-6">
+        <div class="form-group col-md-4">
           {state.cMethod.length > 0 ? (
             <Widget src={`${cep}/widget/export-button`} props={state} />
           ) : (
@@ -536,13 +509,23 @@ return (
             </>
           )}
         </div>
-        <div class="form-group col-md-6">
+        <div class="form-group col-md-4">
           {state.cMethod.length > 0 ? (
             <Widget src={`${cep}/widget/preview-button`} props={state} />
           ) : (
             <>
               <label></label>
               <button class="btn btn-dark form-control ">👀 Preview</button>
+            </>
+          )}
+        </div>
+        <div class="form-group col-md-4">
+          {state.cMethod.length > 0 ? (
+            <Widget src={`${cep}/widget/save-client-button`} />
+          ) : (
+            <>
+              <label></label>
+              <button class="btn btn-dark form-control "> Save Client</button>
             </>
           )}
         </div>
