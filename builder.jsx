@@ -145,7 +145,7 @@ const onCreateMethod = () => {
 };
 const getMethodFromSource = () => {
   State.update({ cMerr: null, cMethod: [] });
-  const res = fetch(state.rpcUrl, {
+  asyncFetch(state.rpcUrl, {
     body: JSON.stringify({
       method: "query",
       params: {
@@ -158,246 +158,311 @@ const getMethodFromSource = () => {
     }),
     headers: header,
     method: "POST",
-  });
-  let abiMethod = [];
-  const resb = res.body;
-  if (resb.result) {
-    const data = Buffer(resb.result.code_base64, "base64").toString("ascii");
-    const fist = data.indexOf("memory");
-    let second =
-      data.indexOf("__data_end") !== -1
-        ? data.indexOf("__data_end")
-        : data.indexOf("P]");
-    if (fist !== -1 && second !== -1) {
-      const functionsData = data
-        .substring(fist, second)
-        .replace(/[^\w ]/g, " ")
-        .split(" ");
-      const filterFunction = [];
-      functionsData.forEach((item, index) => {
-        if (index > 0 && item.length > 1) {
-          if (!/^[A-Z]+(?:_[A-Z]+)*$/m.test(item) && !/^[0-9]*$/.test(string)) {
-            filterFunction.push(item);
-          }
-        }
-      });
-      filterFunction.forEach((item) => {
-        const res = fetch(
-          `${state.nearBlockRpc}v1/account/${state.contractAddress}/txns?method=${item}&order=desc&page=1&per_page=25`,
-          opGet
-        );
-        const method = {
-          name: item,
-          kind: "view",
-          export: true,
-          params: {
-            serialization_type: "json",
-            args: [],
-          },
-          deposit: 0,
-          gas: 30000000000000,
-        };
-        if (res.body.txns.length > 0) {
-          const isScs = false;
-          res.body.txns.forEach((item) => {
-            if (item.outcomes.status) {
-              isScs = true;
-            }
-          });
-          if (isScs) {
-            method.kind = "call";
-          }
-        }
-        abiMethod.push(method);
-      });
-      State.update({ cMethod: abiMethod });
-      abiMethod.forEach((item, index) => {
-        // fix setinterval
-        getArgsFromMethod(item.name, index);
-      });
-    } else {
-      State.update({ cMerr: "Unable to detect Method!" });
-    }
-  } else {
-    State.update({ cMerr: "Unable to detect Method!" });
-  }
-};
-const getArgsFromMethod = (fName, fIndex) => {
-  const res = fetch(
-    `${state.nearBlockRpc}v1/account/${state.contractAddress}/txns?method=${fName}&order=desc&page=1&per_page=1`,
-    opGet
-  );
-  const restxns = res.body.txns[0];
-  if (restxns.outcomes.status && restxns.logs.length > 0) {
-    const argsData = JSON.parse(
-      restxns.logs[0].replace("EVENT_JSON:", "").replaceAll("\\", "")
-    );
-    const args = argsData.data[0] || argsData;
-    if (Object.keys(args).length > 0) {
-      const abiMethod = state.cMethod;
-      abiMethod[fIndex].params.args = [];
-
-      Object.keys(args).forEach((item) => {
-        const arg = {
-          name: item,
-          type_schema: {
-            type:
-              typeof args[item] == "number"
-                ? "integer"
-                : typeof args[item] == "object"
-                ? "json"
-                : typeof args[item],
-          },
-          value: "",
-        };
-        abiMethod[fIndex].params.args.push(arg);
-        State.update({ cMethod: abiMethod });
-      });
-    }
-  } else {
-    const getArg = setAsyncInterval(() => {
-      const abiMethod = state.cMethod;
-      const argsArr = abiMethod[fIndex].params.args;
-      const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
-      const args = {};
-      argMap.forEach((item) => {
-        Object.assign(args, item);
-      });
-      const res = fetch(state.rpcUrl, {
-        body: JSON.stringify({
-          method: "query",
-          params: {
-            request_type: "call_function",
-            account_id: state.contractAddress,
-            method_name: fName,
-            args_base64: new Buffer.from(JSON.stringify(args)).toString(
-              "base64"
-            ),
-            finality: "optimistic",
-          },
-          id: 154,
-          jsonrpc: "2.0",
-        }),
-        headers: header,
-        method: "POST",
-      });
-      const strErr = res.body.result.error;
-      if (strErr && strErr.includes("missing field")) {
-        const argName = strErr.substring(
-          strErr.indexOf("`") + 1,
-          strErr.lastIndexOf("`")
-        );
-        const checkType = [
-          { value: "", type: "string" },
-          { value: 0, type: "integer" },
-          { value: [], type: "array" },
-          { value: true, type: "boolean" },
-          { value: "", type: "enum" },
-          { value: {}, type: "object" },
-        ];
-        const isCheck = false;
-        checkType.forEach((typeItem) => {
-          if (isCheck == false) {
-            const res = fetch(state.rpcUrl, {
-              body: JSON.stringify({
-                method: "query",
-                params: {
-                  request_type: "call_function",
-                  account_id: state.contractAddress,
-                  method_name: fName,
-                  args_base64: new Buffer.from(
-                    JSON.stringify({
-                      [argName]: typeItem.value,
-                    })
-                  ).toString("base64"),
-                  finality: "optimistic",
-                },
-                id: 154,
-                jsonrpc: "2.0",
-              }),
-              headers: header,
-              method: "POST",
-            });
-            const ftch = res.body.result.error;
-            const uS = (argName, type, value) => {
-              isCheck = true;
-              const arg = {
-                name: argName,
-                type_schema: {
-                  type: type,
-                },
-                value: type == "enum" ? value[0] : value,
-              };
-              if (type == "enum") {
-                arg.enum = value;
-              }
-              const isExist = false;
-              abiMethod[fIndex].params.args.forEach((item) => {
-                if (item.name == argName) {
-                  isExist = true;
-                }
-              });
-              if (isExist == false) {
-                abiMethod[fIndex].params.args.push(arg);
-                State.update({ cMethod: abiMethod });
-              }
-            };
-            if (ftch) {
-              if (
-                res.body.result.result ||
-                ftch.includes("Option::unwrap()`")
-              ) {
-                uS(argName, typeItem.type, typeItem.value);
-                clearAsyncInterval(getArg);
-              }
-              if (ftch.includes("the account ID")) {
-                uS(argName, "$ref", state.contractAddress);
-              }
-              if (ftch.includes("unknown variant")) {
-                isCheck = true;
-                const getEnum = ftch
-                  .substring(
-                    ftch.indexOf("expected one of") + 17,
-                    ftch.lastIndexOf("\\")
-                  )
-                  .replaceAll("`", "")
-                  .replaceAll(" ", "")
-                  .split(",");
-                uS(argName, "enum", getEnum);
-              }
-              if (ftch.includes("missing field")) {
-                uS(argName, typeItem.type, typeItem.value);
-              }
-            } else {
-              uS(argName, typeItem.type, typeItem.value);
-              clearAsyncInterval(getArg);
+  }).then((res) => {
+    let abiMethod = [];
+    const resb = res.body;
+    if (resb.result) {
+      const data = Buffer(resb.result.code_base64, "base64").toString("ascii");
+      const fist = data.indexOf("memory");
+      let second =
+        data.indexOf("__data_end") !== -1
+          ? data.indexOf("__data_end")
+          : data.indexOf("P]");
+      if (fist !== -1 && second !== -1) {
+        const functionsData = data
+          .substring(fist, second)
+          .replace(/[^\w ]/g, " ")
+          .split(" ");
+        const filterFunction = [];
+        functionsData.forEach((item, index) => {
+          if (index > 0 && item.length > 1) {
+            if (
+              !/^[A-Z]+(?:_[A-Z]+)*$/m.test(item) &&
+              !/^[0-9]*$/.test(string)
+            ) {
+              filterFunction.push(item);
             }
           }
         });
-      }
-
-      if (strErr) {
-        if (strErr.includes("MethodNotFound") || res.body.result.result) {
-          clearAsyncInterval(getArg);
-        }
-        if (
-          strErr.includes("Requires attached deposit") ||
-          strErr.includes("storage_write") ||
-          strErr.includes("predecessor_account_id")
-        ) {
-          if (strErr.includes("Requires attached deposit")) {
-            abiMethod[fIndex].deposit = parseInt(strErr.match(/\d+/)[0]);
+        filterFunction.forEach((item) => {
+          const res = fetch(
+            `${state.nearBlockRpc}v1/account/${state.contractAddress}/txns?method=${item}&order=desc&page=1&per_page=25`,
+            opGet
+          );
+          const method = {
+            name: item,
+            kind: "view",
+            export: true,
+            params: {
+              serialization_type: "json",
+              args: [],
+            },
+            deposit: 0,
+            gas: 30000000000000,
+          };
+          if (res.body.txns.length > 0) {
+            const isScs = false;
+            res.body.txns.forEach((item) => {
+              if (item.outcomes.status) {
+                isScs = true;
+              }
+            });
+            if (isScs) {
+              method.kind = "call";
+            }
           }
-          abiMethod[fIndex].kind = "call";
-          State.update({ cMethod: abiMethod });
-          //clearInterval(getArg);
-        }
+          abiMethod.push(method);
+        });
+
+        State.update({ cMethod: abiMethod });
+        abiMethod.forEach((item, index) => {
+          getArgsFromMethod(item.name, index);
+        });
+      } else {
+        State.update({ cMerr: "Unable to detect Method!" });
       }
-      setTimeout(() => {
-        clearAsyncInterval(getArg);
-      }, 10000);
-    }, 1000);
-  }
+    } else {
+      State.update({ cMerr: "Unable to detect Method!" });
+    }
+  });
+};
+const getArgsFromMethod = (fName, fIndex) => {
+  asyncFetch(
+    `${state.nearBlockRpc}v1/account/${state.contractAddress}/txns?method=${fName}&order=desc&page=1&per_page=1`,
+    opGet
+  ).then((res) => {
+    const restxns = res.body.txns[0];
+    if (restxns.outcomes.status && restxns.logs.length > 0) {
+      const argsData = JSON.parse(
+        restxns.logs[0].replace("EVENT_JSON:", "").replaceAll("\\", "")
+      );
+      const args = argsData.data[0] || argsData;
+      if (Object.keys(args).length > 0) {
+        const abiMethod = state.cMethod;
+        abiMethod[fIndex].params.args = [];
+        Object.keys(args).forEach((item) => {
+          const arg = {
+            name: item,
+            type_schema: {
+              type:
+                typeof args[item] == "number"
+                  ? "integer"
+                  : typeof args[item] == "object"
+                  ? "json"
+                  : typeof args[item],
+            },
+            value: "",
+          };
+          abiMethod[fIndex].kind = "call";
+          abiMethod[fIndex].params.args.push(arg);
+          State.update({ cMethod: abiMethod });
+        });
+      }
+    } else {
+      const getArg = setAsyncInterval(() => {
+        const abiMethod = state.cMethod;
+        const argsArr = abiMethod[fIndex].params.args;
+        const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
+        const args = {};
+        argMap.forEach((item) => {
+          Object.assign(args, item);
+        });
+
+        asyncFetch(state.rpcUrl, {
+          body: JSON.stringify({
+            method: "query",
+            params: {
+              request_type: "call_function",
+              account_id: state.contractAddress,
+              method_name: fName,
+              args_base64: new Buffer.from(JSON.stringify(args)).toString(
+                "base64"
+              ),
+              finality: "final",
+            },
+            id: 154,
+            jsonrpc: "2.0",
+          }),
+          headers: header,
+          method: "POST",
+        }).then((res) => {
+          const strErr = res.body.result.error;
+          if (strErr && strErr.includes("missing field")) {
+            const argName = strErr.substring(
+              strErr.indexOf("`") + 1,
+              strErr.lastIndexOf("`")
+            );
+
+            const checkType = [
+              { value: "", type: "string" },
+              { value: "300", type: "string" },
+              { value: 0, type: "integer" },
+              { value: [], type: "array" },
+              { value: true, type: "boolean" },
+              { value: {}, type: "json" },
+              { value: state.contractAddress, type: "$ref" },
+            ];
+            if (argName == "metadata") {
+              checkType.unshift({
+                value: JSON.parse(
+                  '{ "spec": "0","name": "check", "symbol": "check" }'
+                ),
+                type: "json",
+              });
+            }
+            const isCheck = false;
+            checkType.forEach((typeItem) => {
+              if (isCheck == false) {
+                asyncFetch(state.rpcUrl, {
+                  body: JSON.stringify({
+                    method: "query",
+                    params: {
+                      request_type: "call_function",
+                      account_id: state.contractAddress,
+                      method_name: fName,
+                      args_base64: new Buffer.from(
+                        JSON.stringify({
+                          [argName]: typeItem.value,
+                        })
+                      ).toString("base64"),
+                      finality: "final",
+                    },
+                    id: 154,
+                    jsonrpc: "2.0",
+                  }),
+                  headers: header,
+                  method: "POST",
+                }).then((res) => {
+                  if (fName == "nft_payout") {
+                    console.log(
+                      new Buffer.from(
+                        JSON.stringify({
+                          [argName]: typeItem.value,
+                        })
+                      ).toString("base64")
+                    );
+                  }
+                  const uS = (argName, type, value) => {
+                    isCheck = true;
+                    const arg = {
+                      name: argName,
+                      type_schema: {
+                        type: type,
+                      },
+                      value: type == "enum" ? value[0] : value,
+                    };
+                    if (type == "enum") {
+                      arg.enum = value;
+                    }
+                    const isExist = false;
+                    abiMethod[fIndex].params.args.forEach((item) => {
+                      if (item.name == argName) {
+                        isExist = true;
+                      }
+                    });
+                    if (isExist == false) {
+                      abiMethod[fIndex].params.args.push(arg);
+                      State.update({ cMethod: abiMethod });
+                    }
+                  };
+                  if (res.body.result.result) {
+                    clearAsyncInterval(getArg);
+                  }
+                  const ftch = res.body.result.error;
+                  if (ftch) {
+                    if (ftch.includes("Option::unwrap()`")) {
+                      uS(argName, typeItem.type, typeItem.value);
+                      abiMethod[fIndex].kind = "call";
+                      State.update({ cMethod: abiMethod });
+                      clearAsyncInterval(getArg);
+                    }
+                    if (ftch.includes("the account ID")) {
+                      uS(argName, "$ref", state.contractAddress);
+                    }
+                    if (ftch.includes("invalid digit found")) {
+                      uS(argName, typeItem.type, "300");
+                    }
+                    if (ftch.includes("integer from empty string")) {
+                      uS(argName, typeItem.type, "300");
+                    }
+                    if (ftch.includes("unknown variant")) {
+                      isCheck = true;
+                      const getEnum = ftch
+                        .substring(
+                          ftch.indexOf("expected one of") + 17,
+                          ftch.lastIndexOf("\\")
+                        )
+                        .replaceAll("`", "")
+                        .replaceAll(" ", "")
+                        .split(",");
+                      uS(argName, "enum", getEnum);
+                    }
+                    if (ftch.includes("missing field")) {
+                      uS(argName, typeItem.type, typeItem.value);
+                    }
+                    if (ftch.includes("Requires attached deposit")) {
+                      uS(argName, typeItem.type, typeItem.value);
+                      abiMethod[fIndex].kind = "call";
+                      abiMethod[fIndex].deposit = parseInt(
+                        strErr.match(/\d+/)[0]
+                      );
+                      State.update({ cMethod: abiMethod });
+                      clearAsyncInterval(getArg);
+                    }
+                  } else {
+                    uS(argName, typeItem.type, typeItem.value);
+                    clearAsyncInterval(getArg);
+                  }
+                });
+              }
+            });
+          }
+          if (res.body.result.result) {
+            clearAsyncInterval(getArg);
+          }
+          if (strErr) {
+            if (strErr.includes("Option::unwrap()`")) {
+              abiMethod[fIndex].kind = "call";
+              State.update({ cMethod: abiMethod });
+              clearAsyncInterval(getArg);
+            }
+            if (strErr.includes("been initialized")) {
+              abiMethod[fIndex].kind = "call";
+              State.update({ cMethod: abiMethod });
+              clearAsyncInterval(getArg);
+            }
+            if (strErr.includes("No token")) {
+              abiMethod[fIndex].kind = "call";
+              State.update({ cMethod: abiMethod });
+              clearAsyncInterval(getArg);
+            }
+            if (strErr.includes("MethodNotFound")) {
+              clearAsyncInterval(getArg);
+            }
+            if (
+              strErr.includes("storage_write") ||
+              strErr.includes("predecessor_account_id")
+            ) {
+              abiMethod[fIndex].kind = "call";
+              State.update({ cMethod: abiMethod });
+              clearAsyncInterval(getArg);
+            }
+            if (strErr.includes("Requires attached deposit")) {
+              abiMethod[fIndex].kind = "call";
+              abiMethod[fIndex].deposit = parseInt(strErr.match(/\d+/)[0]);
+              State.update({ cMethod: abiMethod });
+              clearAsyncInterval(getArg);
+            }
+          }
+          console.log(fName, strErr);
+        });
+
+        setTimeout(() => {
+          // clearAsyncInterval(getArg);
+        }, 60000);
+      }, 1000);
+    }
+  });
 };
 const onBtnClickCall = (fName, action, fIndex) => {
   const abiMethod = state.cMethod;
