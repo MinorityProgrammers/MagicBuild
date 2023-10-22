@@ -259,7 +259,7 @@ const getArgsFromMethod = (fName, fIndex) => {
         });
       }
     } else {
-      const getArg = setAsyncInterval(() => {
+      const getArg = setInterval(() => {
         const abiMethod = state.cMethod;
         const argsArr = abiMethod[fIndex].params.args;
         const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
@@ -333,15 +333,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                   headers: header,
                   method: "POST",
                 }).then((res) => {
-                  if (fName == "nft_payout") {
-                    console.log(
-                      new Buffer.from(
-                        JSON.stringify({
-                          [argName]: typeItem.value,
-                        })
-                      ).toString("base64")
-                    );
-                  }
                   const uS = (argName, type, value) => {
                     isCheck = true;
                     const arg = {
@@ -366,7 +357,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                     }
                   };
                   if (res.body.result.result) {
-                    clearAsyncInterval(getArg);
+                    clearInterval(getArg);
                   }
                   const ftch = res.body.result.error;
                   if (ftch) {
@@ -374,7 +365,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                       uS(argName, typeItem.type, typeItem.value);
                       abiMethod[fIndex].kind = "call";
                       State.update({ cMethod: abiMethod });
-                      clearAsyncInterval(getArg);
+                      clearInterval(getArg);
                     }
                     if (ftch.includes("the account ID")) {
                       uS(argName, "$ref", state.contractAddress);
@@ -407,37 +398,37 @@ const getArgsFromMethod = (fName, fIndex) => {
                         strErr.match(/\d+/)[0]
                       );
                       State.update({ cMethod: abiMethod });
-                      clearAsyncInterval(getArg);
+                      clearInterval(getArg);
                     }
                   } else {
                     uS(argName, typeItem.type, typeItem.value);
-                    clearAsyncInterval(getArg);
+                    clearInterval(getArg);
                   }
                 });
               }
             });
           }
           if (res.body.result.result) {
-            clearAsyncInterval(getArg);
+            clearInterval(getArg);
           }
           if (strErr) {
             if (strErr.includes("Option::unwrap()`")) {
               abiMethod[fIndex].kind = "call";
               State.update({ cMethod: abiMethod });
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
             if (strErr.includes("been initialized")) {
               abiMethod[fIndex].kind = "call";
               State.update({ cMethod: abiMethod });
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
             if (strErr.includes("No token")) {
               abiMethod[fIndex].kind = "call";
               State.update({ cMethod: abiMethod });
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
             if (strErr.includes("MethodNotFound")) {
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
             if (
               strErr.includes("storage_write") ||
@@ -445,13 +436,13 @@ const getArgsFromMethod = (fName, fIndex) => {
             ) {
               abiMethod[fIndex].kind = "call";
               State.update({ cMethod: abiMethod });
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
             if (strErr.includes("Requires attached deposit")) {
               abiMethod[fIndex].kind = "call";
               abiMethod[fIndex].deposit = parseInt(strErr.match(/\d+/)[0]);
               State.update({ cMethod: abiMethod });
-              clearAsyncInterval(getArg);
+              clearInterval(getArg);
             }
           }
           console.log(fName, strErr);
