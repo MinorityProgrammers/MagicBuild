@@ -378,15 +378,18 @@ const getArgsFromMethod = (fName, fIndex) => {
                     }
                     if (ftch.includes("unknown variant")) {
                       isCheck = true;
-                      const getEnum = ftch
-                        .substring(
-                          ftch.indexOf("expected one of") + 17,
-                          ftch.lastIndexOf("\\")
-                        )
-                        .replaceAll("`", "")
-                        .replaceAll(" ", "")
-                        .split(",");
-                      uS(argName, "enum", getEnum);
+                      const getEnum = ftch.match(/\`(.*?)\`/g);
+                      console.log("getEnum", getEnum);
+                      const enumList = [];
+                      getEnum.forEach((item, index) => {
+                        if (index !== 0) {
+                          enumList.push(item.replaceAll("`", ""));
+                        }
+                      });
+                      console.log("enumList", enumList);
+                      //change_state wasm execution failed with error: HostError(GuestPanic { panic_msg: "panicked at 'Failed to deserialize input from JSON.: Error(\"unknown variant `ailedwitherror:HostError(GuestPanic{panic_msg:\\\"panickedat'FailedtodeserializeinputfromJSON.:Error(\\\\\\\"unknownvariantv2.ref-finance.near`, expected `Running` or `Paused`\", line: 1, column: 147)', ref-exchange/src/owner.rs:11:1" })
+
+                      uS(argName, "enum", enumList);
                     }
                     if (ftch.includes("missing field")) {
                       uS(argName, typeItem.type, typeItem.value);
@@ -411,7 +414,18 @@ const getArgsFromMethod = (fName, fIndex) => {
           if (res.body.result.result) {
             clearInterval(getArg);
           }
+
+          //main.aebf23a2b16652c8ce54.bundle.js:8 magicbuild.near/widget/builder execute_actions wasm execution failed with error: HostError(GuestPanic { panic_msg: "panicked at 'Failed to deserialize input from JSON.: Error(\"missing field `actions`\", line: 1, column: 2)', ref-exchange
           if (strErr) {
+            if (strErr.includes("not implemented")) {
+              console.log(fName, "not implemented");
+              //predict_add_stable_liquidity
+              //v2.ref-finance.near
+              //https://nearblocks.io/txns/9ZVV2RpsHQAmQcu3UhY8rZb7ULkNGxLTjxoMrUmGC3RZ#execution
+              // abiMethod[fIndex].kind = "call";
+              // State.update({ cMethod: abiMethod });
+              //clearInterval(getArg);
+            }
             if (strErr.includes("Option::unwrap()`")) {
               abiMethod[fIndex].kind = "call";
               State.update({ cMethod: abiMethod });
@@ -449,8 +463,9 @@ const getArgsFromMethod = (fName, fIndex) => {
         });
 
         setTimeout(() => {
+          clearInterval(getArg);
           // clearAsyncInterval(getArg);
-        }, 60000);
+        }, 120000);
       }, 1000);
     }
   });
