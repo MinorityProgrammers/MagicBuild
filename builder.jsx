@@ -292,24 +292,14 @@ const getArgsFromMethod = (fName, fIndex) => {
               strErr.indexOf("`") + 1,
               strErr.lastIndexOf("`")
             );
-
             const checkType = [
               { value: "", type: "string" },
-              { value: "300", type: "string" },
               { value: 0, type: "integer" },
               { value: [], type: "array" },
               { value: true, type: "boolean" },
               { value: {}, type: "json" },
               { value: state.contractAddress, type: "$ref" },
             ];
-            if (argName == "metadata") {
-              checkType.unshift({
-                value: JSON.parse(
-                  '{ "spec": "0","name": "check", "symbol": "check" }'
-                ),
-                type: "json",
-              });
-            }
             const isCheck = false;
             checkType.forEach((typeItem) => {
               if (isCheck == false) {
@@ -360,6 +350,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                     clearInterval(getArg);
                   }
                   const ftch = res.body.result.error;
+
                   if (ftch) {
                     if (ftch.includes("Option::unwrap()`")) {
                       uS(argName, typeItem.type, typeItem.value);
@@ -370,8 +361,33 @@ const getArgsFromMethod = (fName, fIndex) => {
                     if (ftch.includes("the account ID")) {
                       uS(argName, "$ref", state.contractAddress);
                     }
+                    if (ftch.includes("invalid type: sequence, expected u64")) {
+                      uS(argName, "number", 300);
+                    }
                     if (ftch.includes("invalid digit found")) {
-                      uS(argName, typeItem.type, "300");
+                      uS(argName, "string", "300");
+                    }
+                    if (
+                      ftch.includes("invalid type: sequence, expected a string")
+                    ) {
+                      uS(argName, "string", "wrap.near");
+                      clearInterval(getArg);
+                    }
+                    if (
+                      ftch.includes(
+                        "data did not match any variant of untagged enum"
+                      )
+                    ) {
+                      uS(argName, typeItem.type, ["300", "300"]);
+                      clearInterval(getArg);
+                    }
+
+                    if (ftch.includes("not implemented")) {
+                      uS(argName, typeItem.type, ["300", "300"]);
+                      // clearInterval(getArg);
+                    }
+                    if (ftch.includes("invalid token id")) {
+                      uS(argName, "$ref", "wrap.near");
                     }
                     if (ftch.includes("integer from empty string")) {
                       uS(argName, typeItem.type, "300");
@@ -379,16 +395,13 @@ const getArgsFromMethod = (fName, fIndex) => {
                     if (ftch.includes("unknown variant")) {
                       isCheck = true;
                       const getEnum = ftch.match(/\`(.*?)\`/g);
-                      console.log("getEnum", getEnum);
+
                       const enumList = [];
                       getEnum.forEach((item, index) => {
                         if (index !== 0) {
                           enumList.push(item.replaceAll("`", ""));
                         }
                       });
-                      console.log("enumList", enumList);
-                      //change_state wasm execution failed with error: HostError(GuestPanic { panic_msg: "panicked at 'Failed to deserialize input from JSON.: Error(\"unknown variant `ailedwitherror:HostError(GuestPanic{panic_msg:\\\"panickedat'FailedtodeserializeinputfromJSON.:Error(\\\\\\\"unknownvariantv2.ref-finance.near`, expected `Running` or `Paused`\", line: 1, column: 147)', ref-exchange/src/owner.rs:11:1" })
-
                       uS(argName, "enum", enumList);
                     }
                     if (ftch.includes("missing field")) {
@@ -403,6 +416,15 @@ const getArgsFromMethod = (fName, fIndex) => {
                       State.update({ cMethod: abiMethod });
                       clearInterval(getArg);
                     }
+
+                    if (
+                      fetch.includes("missing field") &&
+                      argName ==
+                        fetch.match(/\`(.*?)\`/g)[0].replaceAll("`", "")
+                    ) {
+                      uS(argName, typeItem.type, typeItem.value);
+                      clearInterval(getArg);
+                    }
                   } else {
                     uS(argName, typeItem.type, typeItem.value);
                     clearInterval(getArg);
@@ -414,17 +436,15 @@ const getArgsFromMethod = (fName, fIndex) => {
           if (res.body.result.result) {
             clearInterval(getArg);
           }
-
-          //main.aebf23a2b16652c8ce54.bundle.js:8 magicbuild.near/widget/builder execute_actions wasm execution failed with error: HostError(GuestPanic { panic_msg: "panicked at 'Failed to deserialize input from JSON.: Error(\"missing field `actions`\", line: 1, column: 2)', ref-exchange
           if (strErr) {
+            // run here
+            if (strErr.includes("Invalid register")) {
+              abiMethod[fIndex].kind = "call";
+              State.update({ cMethod: abiMethod });
+              clearInterval(getArg);
+            }
             if (strErr.includes("not implemented")) {
-              console.log(fName, "not implemented");
-              //predict_add_stable_liquidity
-              //v2.ref-finance.near
-              //https://nearblocks.io/txns/9ZVV2RpsHQAmQcu3UhY8rZb7ULkNGxLTjxoMrUmGC3RZ#execution
-              // abiMethod[fIndex].kind = "call";
-              // State.update({ cMethod: abiMethod });
-              //clearInterval(getArg);
+              clearInterval(getArg);
             }
             if (strErr.includes("Option::unwrap()`")) {
               abiMethod[fIndex].kind = "call";
@@ -458,7 +478,18 @@ const getArgsFromMethod = (fName, fIndex) => {
               State.update({ cMethod: abiMethod });
               clearInterval(getArg);
             }
+            if (strErr.includes("assertion failed: `(left == right)")) {
+              abiMethod[fIndex].kind = "call";
+              State.update({ cMethod: abiMethod });
+              clearInterval(getArg);
+            }
+            if (strErr.includes("nvalid type: sequence, expected u64")) {
+              abiMethod[fIndex].params.arg = 0;
+              State.update({ cMethod: abiMethod });
+              clearInterval(getArg);
+            }
           }
+
           console.log(fName, strErr);
         });
 
@@ -550,7 +581,6 @@ return (
             onChange={(e) => cFunc(e, "address")}
           />
         </div>
-
         <div class="form-group col-md-2">
           <label></label>
           <button
