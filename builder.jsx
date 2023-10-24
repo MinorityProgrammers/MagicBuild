@@ -76,8 +76,8 @@ const cMLabel = (e, fIdx, type) => {
   const a = state.cMethod;
   if (type == "method") a[fIdx].label = value;
   if (type == "button") a[fIdx].button = value;
-  if (type == "gas") a[fIdx].gas = parseInt(value);
-  if (type == "deposit") a[fIdx].deposit = parseInt(value);
+  if (type == "gas") a[fIdx].gas = parseInt(value) || 0;
+  if (type == "deposit") a[fIdx].deposit = parseInt(value) || 0;
   if (type == "remove") a.splice(fIdx, 1);
   State.update({ cMethod: a });
 };
@@ -147,7 +147,7 @@ const onCreateMethod = () => {
   }
 };
 const getMethodFromSource = () => {
-  State.update({ cMerr: null, cMethod: [] });
+  State.update({ cMerr: null, cMethod: [], totalProcess: 0, endprocess: 0 });
   asyncFetch(state.rpcUrl, {
     body: JSON.stringify({
       method: "query",
@@ -579,8 +579,8 @@ const onBtnClickCall = (fName, action, fIndex) => {
         state.contractAddress,
         abiMethod[fIndex].name,
         args,
-        abiMethod[fIndex].deposit,
-        abiMethod[fIndex].gas
+        abiMethod[fIndex].gas,
+        abiMethod[fIndex].deposit
       );
     }
   }
@@ -604,6 +604,7 @@ return (
           <button
             onClick={getMethodFromSource}
             class="btn btn-dark form-control "
+            disabled={(state.endprocess / state.totalProcess) * 100 < 100}
           >
             🧙🏻 Scan
           </button>
