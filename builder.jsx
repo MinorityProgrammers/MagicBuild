@@ -11,6 +11,9 @@ State.init({
   cMerr,
   res,
   cAerr,
+  messProccses: "",
+  totalProcess: 0,
+  endprocess: 0,
 });
 const header = {
   "Content-Type": "application/json",
@@ -184,6 +187,7 @@ const getMethodFromSource = () => {
             }
           }
         });
+        State.update({ totalProcess: filterFunction.length });
         filterFunction.forEach((item) => {
           const res = fetch(
             `${state.nearBlockRpc}v1/account/${state.contractAddress}/txns?method=${item}&order=desc&page=1&per_page=25`,
@@ -378,7 +382,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                     if (
                       ftch.includes("invalid type: sequence, expected a string")
                     ) {
-                      uS(argName, "string", "wrap.near");
                       if (isExist) {
                         uS(argName, "string", "wrap.near");
                       } else {
@@ -494,15 +497,24 @@ const getArgsFromMethod = (fName, fIndex) => {
               State.update({ cMethod: abiMethod });
               clearAsyncInterval(getArg);
             }
-            console.log(fName, strErr, countLoop);
           }
         });
         countLoop++;
-        console.log("loop", countLoop);
-
+        console.log(asyncIntervals);
         if (countLoop == 20) {
           clearAsyncInterval(getArg);
         }
+        const runProcess = 0;
+        asyncIntervals.forEach((item) => {
+          if (item.run) {
+            runProcess++;
+          }
+        });
+        const endprocess = state.totalProcess - runProcess;
+        State.update({
+          endprocess: endprocess + 1,
+          messProccses: `Scanning Method :${fName}`,
+        });
       }, 1000);
     }
   });
@@ -597,39 +609,42 @@ return (
           </button>
         </div>
       </div>
-      <div class="row">
-        <div class="form-group col-md-4">
-          <h6>Method Name</h6>
-          <input
-            type="text"
-            onChange={(e) => cFunc(e, "name")}
-            class="form-control"
-          />
+      {state.totalProcess > 0 && (
+        <div class="row">
+          <div class="form-group col-md-12">
+            <div class="progress">
+              <div
+                className={`progress-bar progress-bar-striped ${
+                  state.totalProcess > 0 &&
+                  (state.endprocess / state.totalProcess) * 100 < 100
+                    ? "progress-bar-animated"
+                    : "bg-success"
+                }  ${
+                  (state.endprocess / state.totalProcess) * 100 == 100
+                    ? "bg-success"
+                    : ""
+                }`}
+                role="progressbar"
+                aria-valuenow="75"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                style={{
+                  width: `${(state.endprocess / state.totalProcess) * 100}%`,
+                }}
+              >
+                {Math.round((state.endprocess / state.totalProcess) * 100) ==
+                100
+                  ? "Scan completed"
+                  : state.messProccses}
+                {Math.round((state.endprocess / state.totalProcess) * 100)} % -
+                ({state.endprocess < 0 ? 0 : state.endprocess}/
+                {state.totalProcess})
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="form-group col-md-4">
-          <h6>Label</h6>
-          <input
-            type="text"
-            onChange={(e) => cFunc(e, "label")}
-            class="form-control"
-          />
-        </div>
-        <div class="form-group col-md-2">
-          <h6>Action</h6>
-          <select class="form-control" onChange={(e) => cFunc(e, "action")}>
-            <option value="view" selected>
-              View
-            </option>
-            <option value="call">Call</option>
-          </select>
-        </div>
-        <div class="form-group col-md-2">
-          <label></label>
-          <button onClick={onCreateMethod} class="btn btn-dark form-control ">
-            Create
-          </button>
-        </div>
-      </div>
+      )}
+
       <div class="row">
         <div class="form-group col-md-4">
           {state.cMethod.length > 0 ? (
@@ -669,6 +684,39 @@ return (
       )}
     </div>
     <br />
+    <div class="row mb-4">
+      <div class="form-group col-md-4">
+        <h6>Method Name</h6>
+        <input
+          type="text"
+          onChange={(e) => cFunc(e, "name")}
+          class="form-control"
+        />
+      </div>
+      <div class="form-group col-md-4">
+        <h6>Label</h6>
+        <input
+          type="text"
+          onChange={(e) => cFunc(e, "label")}
+          class="form-control"
+        />
+      </div>
+      <div class="form-group col-md-2">
+        <h6>Action</h6>
+        <select class="form-control" onChange={(e) => cFunc(e, "action")}>
+          <option value="view" selected>
+            View
+          </option>
+          <option value="call">Call</option>
+        </select>
+      </div>
+      <div class="form-group col-md-2">
+        <label></label>
+        <button onClick={onCreateMethod} class="btn btn-dark form-control ">
+          Create
+        </button>
+      </div>
+    </div>
     {state.cMethod &&
       state.cMethod.map((functions, fIndex) => (
         <div class="card mt-2">
