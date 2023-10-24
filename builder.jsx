@@ -259,6 +259,7 @@ const getArgsFromMethod = (fName, fIndex) => {
         });
       }
     } else {
+      let countLoop = 0;
       const getArg = setInterval(() => {
         const abiMethod = state.cMethod;
         const argsArr = abiMethod[fIndex].params.args;
@@ -301,6 +302,7 @@ const getArgsFromMethod = (fName, fIndex) => {
               { value: state.contractAddress, type: "$ref" },
             ];
             const isCheck = false;
+
             checkType.forEach((typeItem) => {
               if (isCheck == false) {
                 asyncFetch(state.rpcUrl, {
@@ -323,8 +325,9 @@ const getArgsFromMethod = (fName, fIndex) => {
                   headers: header,
                   method: "POST",
                 }).then((res) => {
+                  const isExist = false;
+
                   const uS = (argName, type, value) => {
-                    isCheck = true;
                     const arg = {
                       name: argName,
                       type_schema: {
@@ -335,7 +338,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                     if (type == "enum") {
                       arg.enum = value;
                     }
-                    const isExist = false;
+
                     abiMethod[fIndex].params.args.forEach((item) => {
                       if (item.name == argName) {
                         isExist = true;
@@ -345,6 +348,10 @@ const getArgsFromMethod = (fName, fIndex) => {
                       abiMethod[fIndex].params.args.push(arg);
                       State.update({ cMethod: abiMethod });
                     }
+                    if (isCheck && isExist) {
+                      //  clearInterval(getArg);
+                    }
+                    isCheck = true;
                   };
                   if (res.body.result.result) {
                     clearInterval(getArg);
@@ -361,6 +368,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                     if (ftch.includes("the account ID")) {
                       uS(argName, "$ref", state.contractAddress);
                     }
+
                     if (ftch.includes("invalid type: sequence, expected u64")) {
                       uS(argName, "number", 300);
                     }
@@ -371,7 +379,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                       ftch.includes("invalid type: sequence, expected a string")
                     ) {
                       uS(argName, "string", "wrap.near");
-                      clearInterval(getArg);
+                      // clearInterval(getArg);
                     }
                     if (
                       ftch.includes(
@@ -407,6 +415,7 @@ const getArgsFromMethod = (fName, fIndex) => {
                     if (ftch.includes("missing field")) {
                       uS(argName, typeItem.type, typeItem.value);
                     }
+
                     if (ftch.includes("Requires attached deposit")) {
                       uS(argName, typeItem.type, typeItem.value);
                       abiMethod[fIndex].kind = "call";
@@ -414,15 +423,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                         strErr.match(/\d+/)[0]
                       );
                       State.update({ cMethod: abiMethod });
-                      clearInterval(getArg);
-                    }
-
-                    if (
-                      fetch.includes("missing field") &&
-                      argName ==
-                        fetch.match(/\`(.*?)\`/g)[0].replaceAll("`", "")
-                    ) {
-                      uS(argName, typeItem.type, typeItem.value);
                       clearInterval(getArg);
                     }
                   } else {
@@ -436,8 +436,8 @@ const getArgsFromMethod = (fName, fIndex) => {
           if (res.body.result.result) {
             clearInterval(getArg);
           }
+
           if (strErr) {
-            // run here
             if (strErr.includes("Invalid register")) {
               abiMethod[fIndex].kind = "call";
               State.update({ cMethod: abiMethod });
@@ -489,10 +489,13 @@ const getArgsFromMethod = (fName, fIndex) => {
               clearInterval(getArg);
             }
           }
-
-          console.log(fName, strErr);
         });
-
+        countLoop++;
+        console.log("loop", countLoop);
+        console.log(fName, strErr);
+        if (countLoop == 15) {
+          clearInterval(getArg);
+        }
         setTimeout(() => {
           clearInterval(getArg);
           // clearAsyncInterval(getArg);
