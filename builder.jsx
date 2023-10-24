@@ -13,7 +13,7 @@ State.init({
   cAerr,
   messProccses: "",
   totalProcess: 0,
-  endprocess: 0,
+  endprocess: 1,
 });
 const header = {
   "Content-Type": "application/json",
@@ -47,6 +47,9 @@ const clearAsyncInterval = (intervalIndex) => {
   if (asyncIntervals[intervalIndex].run) {
     clearTimeout(asyncIntervals[intervalIndex].id);
     asyncIntervals[intervalIndex].run = false;
+    State.update({
+      endprocess: state.endprocess++,
+    });
   }
 };
 const cFunc = (e, type) => {
@@ -147,7 +150,9 @@ const onCreateMethod = () => {
   }
 };
 const getMethodFromSource = () => {
-  State.update({ cMerr: null, cMethod: [], totalProcess: 0, endprocess: 0 });
+  State.update({ cMerr: null });
+  State.update({ totalProcess: 0 });
+  State.update({ endprocess: 1 });
   asyncFetch(state.rpcUrl, {
     body: JSON.stringify({
       method: "query",
@@ -163,6 +168,7 @@ const getMethodFromSource = () => {
     method: "POST",
   }).then((res) => {
     let abiMethod = [];
+
     const resb = res.body;
     if (resb.result) {
       const data = Buffer(resb.result.code_base64, "base64").toString("ascii");
@@ -187,7 +193,7 @@ const getMethodFromSource = () => {
             }
           }
         });
-        State.update({ totalProcess: filterFunction.length });
+
         filterFunction.forEach((item) => {
           const res = fetch(
             `${state.nearBlockRpc}v1/account/${state.contractAddress}/txns?method=${item}&order=desc&page=1&per_page=25`,
@@ -222,6 +228,8 @@ const getMethodFromSource = () => {
         abiMethod.forEach((item, index) => {
           getArgsFromMethod(item.name, index);
         });
+
+        State.update({ totalProcess: filterFunction.length });
       } else {
         State.update({ cMerr: "Unable to detect Method!" });
       }
@@ -240,10 +248,13 @@ const getArgsFromMethod = (fName, fIndex) => {
       const argsData = JSON.parse(
         restxns.logs[0].replace("EVENT_JSON:", "").replaceAll("\\", "")
       );
+
       const args = argsData.data[0] || argsData;
+      console.log("cMethod", JSON.stringify(state.cMethod));
+      const abiMethod = state.cMethod;
+
+      abiMethod[fIndex].params.args = [];
       if (Object.keys(args).length > 0) {
-        const abiMethod = state.cMethod;
-        abiMethod[fIndex].params.args = [];
         Object.keys(args).forEach((item) => {
           const arg = {
             name: item,
@@ -262,12 +273,18 @@ const getArgsFromMethod = (fName, fIndex) => {
           State.update({ cMethod: abiMethod });
         });
       }
+      State.update({
+        endprocess: state.endprocess++,
+      });
     } else {
       let countLoop = 0;
       const getArg = setAsyncInterval(() => {
         const abiMethod = state.cMethod;
+        console.log("abiMethod", abiMethod);
         const argsArr = abiMethod[fIndex].params.args;
-        const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
+
+        const argMap = argsArr.map(({ name, value }) => ({ [name]: value })); //bug
+
         const args = {};
         argMap.forEach((item) => {
           Object.assign(args, item);
@@ -504,16 +521,9 @@ const getArgsFromMethod = (fName, fIndex) => {
         if (countLoop == 20) {
           clearAsyncInterval(getArg);
         }
-        const runProcess = 0;
-        asyncIntervals.forEach((item) => {
-          if (item.run) {
-            runProcess++;
-          }
-        });
-        const endprocess = state.totalProcess - runProcess;
+
         State.update({
-          endprocess: endprocess + 1,
-          messProccses: `Scanning Method :${fName}`,
+          messProccses: `Scanning Method : "${fName}"`,
         });
       }, 1000);
     }
