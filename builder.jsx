@@ -1,7 +1,8 @@
 State.init({
-  id: props.id ? props.id : null,
+  clientId: props.clientId ? props.clientId : null,
+  clientName: props.clientName ? props.clientName : "",
   contractAddress: props.address ? props.address : "",
-  cMethod: props.abi.body.functions ? props.abi.body.functions : [],
+  cMethod: props.abi ? props.abi : [],
   rpcUrl: "https://rpc.near.org/",
   archivalRpc: "https://archival-rpc.mainnet.near.org",
   nearBlockRpc: "https://api.nearblocks.io/",
@@ -15,8 +16,15 @@ State.init({
   totalProcess: 0,
   endprocess: 1,
 });
+
 const header = {
   "Content-Type": "application/json",
+};
+const saveClientConfig = {
+  clientId: state.clientId,
+  clientName: state.clientName,
+  clientContract: state.contractAddress,
+  abi: state.cMethod,
 };
 const opGet = {
   headers: header,
@@ -51,6 +59,9 @@ const clearAsyncInterval = (intervalIndex) => {
       endprocess: state.endprocess++,
     });
   }
+};
+const updateContractAddress = (e) => {
+  State.update({ contractAddress: data.toLowerCase() });
 };
 const cFunc = (e, type) => {
   const data = e.target.value;
@@ -150,9 +161,6 @@ const onCreateMethod = () => {
   }
 };
 const getMethodFromSource = () => {
-  State.update({ cMerr: null });
-  State.update({ totalProcess: 0 });
-  State.update({ endprocess: 1 });
   const res = fetch(state.rpcUrl, {
     body: JSON.stringify({
       method: "query",
@@ -167,10 +175,13 @@ const getMethodFromSource = () => {
     headers: header,
     method: "POST",
   });
+  State.update({ cMerr: null });
+  State.update({ totalProcess: 0 });
+  State.update({ endprocess: 1 });
   let abiMethod = [];
   State.update({ cMethod: [] });
   const resb = res.body;
-  if (resb.result) {
+  if (resb.result.code_base64) {
     const data = Buffer(resb.result.code_base64, "base64").toString("ascii");
     const fist = data.indexOf("memory");
     let second =
@@ -220,7 +231,6 @@ const getMethodFromSource = () => {
         }
         abiMethod.push(method);
       });
-      console.log("abiMethod", abiMethod);
       State.update({ cMethod: abiMethod });
       abiMethod.forEach((item, index) => {
         getArgsFromMethod(item.name, index);
@@ -230,8 +240,6 @@ const getMethodFromSource = () => {
     } else {
       State.update({ cMerr: "Unable to detect Method!" });
     }
-  } else {
-    State.update({ cMerr: "Unable to detect Method!" });
   }
 };
 const getArgsFromMethod = (fName, fIndex) => {
@@ -668,7 +676,7 @@ return (
           ) : (
             <>
               <label></label>
-              <button class="btn btn-dark form-control ">🔼 Export</button>
+              <button class="btn btn-primary form-control ">🔼 Export</button>
             </>
           )}
         </div>
@@ -678,17 +686,23 @@ return (
           ) : (
             <>
               <label></label>
-              <button class="btn btn-dark form-control ">👀 Preview</button>
+              <button class="btn btn-primary form-control ">👀 Preview</button>
             </>
           )}
         </div>
         <div class="form-group col-md-4">
           {state.cMethod.length > 0 ? (
-            <Widget src={`${cep}/widget/save-client-button`} />
+            <Widget
+              src={`${cep}/widget/save-client-button`}
+              props={saveClientConfig}
+            />
           ) : (
             <>
               <label></label>
-              <button class="btn btn-dark form-control "> Save Client</button>
+              <button class="btn btn-primary form-control ">
+                {" "}
+                Save Client
+              </button>
             </>
           )}
         </div>
@@ -728,7 +742,7 @@ return (
       </div>
       <div class="form-group col-md-2">
         <label></label>
-        <button onClick={onCreateMethod} class="btn btn-dark form-control ">
+        <button onClick={onCreateMethod} class="btn btn-primary form-control ">
           Create
         </button>
       </div>
@@ -948,7 +962,21 @@ return (
                 }
                 role="alert"
               >
-                {state.res[functions.name].value}
+                <pre>
+                  {JSON.stringify(
+                    JSON.parse(state.res[functions.name].value),
+                    null,
+                    2
+                  )}
+                </pre>
+                <button
+                  class="btn btn-dark btn-sm mt-2"
+                  onClick={() => {
+                    clipboard.writeText(state.res[functions.name].value);
+                  }}
+                >
+                  Copy
+                </button>
               </div>
             ) : (
               ""
