@@ -790,7 +790,7 @@ return (
                     <h6 class="col-sm-4 col-form-label">Method Class</h6>
                     <div class="col-sm-6">
                       <input
-                        placeholder="Method Class"
+                        placeholder="Boostrap Class"
                         class="form-control"
                         defaultValue={functions.className || ""}
                         onChange={(e) => cMLabel(e, fIndex, "className")}
@@ -911,7 +911,7 @@ return (
                       </div>
                       <div class="form-group col-md-2">
                         <input
-                          placeholder="class"
+                          placeholder="Boostrap Class"
                           class="form-control"
                           defaultValue={args.className || ""}
                           onChange={(e) =>
@@ -1031,7 +1031,7 @@ return (
                 </div>
                 <div class="form-group col-md-4">
                   <input
-                    placeholder="Button Class"
+                    placeholder="Boostrap Class"
                     class="form-control"
                     defaultValue={functions.classButton || ""}
                     onChange={(e) => cMLabel(e, fIndex, "classButton")}
