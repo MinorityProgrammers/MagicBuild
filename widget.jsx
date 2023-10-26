@@ -282,7 +282,9 @@ return (
                     <button
                       class="btn btn-dark btn-sm mt-2"
                       onClick={() => {
-                        clipboard.writeText(state.res[functions.name].value);
+                        clipboard.writeText(
+                          state.response[functions.name].value
+                        );
                       }}
                     >
                       Copy
