@@ -1,99 +1,98 @@
 State.init({
   cMethod: props.cMethod,
-  widgetName: `MagicBuild-widget-form-${Date.now()}`,
+  widgetName: props.widgetName || `MagicBuild-widget-form-${Date.now()}`,
+  clicked: false,
+  export: false,
 });
 const onSwitchChangeArgExport = (fIndex) => {
   const abiMethod = state.cMethod;
   abiMethod[fIndex].export = !abiMethod[fIndex].export;
   State.update({ cMethod: abiMethod });
+  State.update({ clicked: false });
+  State.update({ export: false });
 };
 const onInputChangeWidgetName = ({ target }) => {
   State.update({ widgetName: target.value.replaceAll(" ", "-") });
+  State.update({ clicked: false });
+  State.update({ export: false });
 };
-const saveClient = () => {
-  const abi = {
-    schema_version: "0.3.0",
-    address: props.contractAddress,
-    metadata: {
-      name: "",
-      version: "0.1.0",
-      authors: [""],
-    },
-    body: {
-      functions: [],
-    },
-  };
 
-  const abiMethod = state.cMethod;
-  abiMethod.forEach((item) => {
-    abi.body.functions.push(item);
-  });
-
-  const data = {
-    magicbuild: {
-      client: {
-        [props.id]: {
-          abi: JSON.stringify(abi),
-        },
-      },
-    },
-  };
-  Social.set(data, {
-    force: true,
-    onCommit: () => {},
-    onCancel: () => {},
-  });
+const openModal = () => {
+  State.update({ clicked: false });
+  State.update({ export: false });
 };
 const exportForm = () => {
-  const abi = {
-    schema_version: "0.3.0",
-    address: props.contractAddress,
-    metadata: {
-      name: "",
-      version: "0.1.0",
-      authors: [""],
-    },
-    body: {
-      functions: [],
-    },
-  };
-
-  const abiMethod = state.cMethod;
-  abiMethod.forEach((item) => {
-    abi.body.functions.push(item);
-  });
-
-  const data = {
-    widget: {
-      [state.widgetName]: {
-        "":
-          "const user = context.accountId;\r\nconst props = " +
-          JSON.stringify(abi).replaceAll("\\", "") +
-          " \r\n\r\nreturn (\r\n  <>\r\n    <Widget src={'magicbuild.near/widget/widget'} props={props} />\r\n  </>\r\n);\r\n",
+  if (!state.clicked) {
+    State.update({ clicked: true });
+    const abi = {
+      schema_version: "0.3.0",
+      address: props.contractAddress,
+      metadata: {
+        name: "",
+        version: "0.1.0",
+        authors: [""],
       },
-    },
-  };
-  console.log("abi", abi);
-  Social.set(data, {
-    force: true,
-    onCommit: () => {},
-    onCancel: () => {},
-  });
+      body: {
+        functions: [],
+      },
+    };
+
+    const abiMethod = state.cMethod;
+    abiMethod.forEach((item) => {
+      abi.body.functions.push(item);
+    });
+    const exportListData = Social.get(
+      `${context.accountId}/magicbuild/widgetList`
+    );
+    const exporttList = JSON.parse(exportListData) || [];
+    const isExist = false;
+    exporttList.forEach((item, index) => {
+      if (item.widgetName == state.widgetName) {
+        exporttList[index].widgetName = state.widgetName;
+        isExist = true;
+      }
+    });
+    if (!isExist) {
+      exporttList.push({ widgetName: state.widgetName });
+    }
+
+    const data = {
+      widget: {
+        [state.widgetName]: {
+          "":
+            "const user = context.accountId;\r\nconst props = " +
+            JSON.stringify(abi).replaceAll("\\", "") +
+            " \r\n\r\nreturn (\r\n  <>\r\n    <Widget src={'magicbuild.near/widget/widget'} props={props} />\r\n  </>\r\n);\r\n",
+        },
+      },
+      magicbuild: { widgetList: exporttList },
+    };
+    Social.set(data, {
+      force: true,
+      onCommit: () => {
+        State.update({ export: true });
+      },
+      onCancel: () => {
+        State.update({ clicked: false });
+      },
+    });
+  }
 };
 return (
   <>
     <label></label>
     <button
       data-bs-toggle="modal"
-      data-bs-target="#export"
+      data-bs-target={`#export-${Date.now()}`}
       class="btn btn-primary form-control "
+      onClick={openModal}
     >
       🔼Export
     </button>
     <div
       class="modal fade"
-      id="export"
-      tabindex="-1"
+      id={`export-${Date.now()}`}
+      tabindex="-2"
       aria-labelledby="exportLabel"
       aria-hidden="true"
     >
@@ -115,7 +114,7 @@ return (
               <label>Widget Name</label>
               <input
                 class="form-control"
-                defaultValue={state.widgetName}
+                defaultValue={state.widgetName || ""}
                 onChange={(e) => onInputChangeWidgetName(e)}
               />
               <small class="form-text text-muted">
@@ -141,6 +140,20 @@ return (
                   </label>
                 </div>
               ))}
+
+            {state.export && state.widgetName && (
+              <>
+                <hr />
+                <h5>Export Success</h5>
+                <div class="alert alert-primary" role="alert">
+                  <a
+                    href={`https://near.social/${context.accountId}/widget/${state.widgetName}`}
+                  >
+                    {`https://near.social/${context.accountId}/widget/${state.widgetName}`}
+                  </a>
+                </div>
+              </>
+            )}
           </div>
           <div class="modal-footer">
             <button
@@ -150,17 +163,13 @@ return (
             >
               Close
             </button>
-            {props.id && (
-              <button
-                type="button"
-                onClick={saveClient}
-                class="btn btn-primary"
-              >
-                Save Client
-              </button>
-            )}
 
-            <button type="button" onClick={exportForm} class="btn btn-primary">
+            <button
+              type="button"
+              disabled={state.clicked}
+              onClick={exportForm}
+              class="btn btn-primary"
+            >
               Export
             </button>
           </div>
