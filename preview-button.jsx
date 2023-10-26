@@ -4,14 +4,14 @@ return (
     <label></label>
     <button
       data-bs-toggle="modal"
-      data-bs-target="#preview"
-      class="btn btn-dark form-control "
+      data-bs-target={`#preview-${Date.now()}`}
+      class="btn btn-primary form-control "
     >
       👀 Preview
     </button>
     <div
       class="modal fade"
-      id="preview"
+      id={`preview-${Date.now()}`}
       tabindex="-1"
       aria-labelledby="previewLabel"
       aria-hidden="true"
