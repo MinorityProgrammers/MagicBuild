@@ -180,7 +180,7 @@ return (
                   onClick={(e) => saveClient(e)}
                   class="btn btn-primary"
                 >
-                  Create
+                  {state.clientId ? "Save" : "Create"}
                 </button>
               </div>
             </div>
