@@ -76,6 +76,9 @@ const onCreateArgs = (fName, fIndex) => {
   const arg = {
     name: "",
     label: "",
+    button: "",
+    className: "",
+    classButton: "",
     type_schema: {
       type: "string",
     },
@@ -89,10 +92,13 @@ const cMLabel = (e, fIdx, type) => {
   const value = e.target.value;
   const a = state.cMethod;
   if (type == "method") a[fIdx].label = value;
+  if (type == "className") a[fIdx].className = value;
+  if (type == "classButton") a[fIdx].classButton = value;
   if (type == "button") a[fIdx].button = value;
   if (type == "gas") a[fIdx].gas = parseInt(value) || 0;
   if (type == "deposit") a[fIdx].deposit = parseInt(value) || 0;
   if (type == "remove") a.splice(fIdx, 1);
+  console.log("a", a);
   State.update({ cMethod: a });
 };
 const cAD = (e, fIdx, aIdx, type) => {
@@ -100,6 +106,7 @@ const cAD = (e, fIdx, aIdx, type) => {
   const a = state.cMethod;
   if (type == "name") a[fIdx].params.args[aIdx].name = value;
   if (type == "label") a[fIdx].params.args[aIdx].label = value;
+  if (type == "className") a[fIdx].params.args[aIdx].className = value;
   if (type == "type") a[fIdx].params.args[aIdx].type_schema.type = value;
   if (type == "value") {
     if (a[fIdx].params.args[aIdx].type_schema.type == "integer") {
@@ -135,6 +142,8 @@ const onCreateMethod = () => {
       kind: state.fAction,
       label: state.fLabel,
       button: "",
+      className: "",
+      classButton: "",
       export: true,
       params: {
         serialization_type: "json",
@@ -285,14 +294,11 @@ const getArgsFromMethod = (fName, fIndex) => {
         const getArg = setAsyncInterval(() => {
           const abiMethod = state.cMethod;
           const argsArr = abiMethod[fIndex].params.args;
-
-          const argMap = argsArr.map(({ name, value }) => ({ [name]: value })); //bug
-
+          const argMap = argsArr.map(({ name, value }) => ({ [name]: value }));
           const args = {};
           argMap.forEach((item) => {
             Object.assign(args, item);
           });
-
           asyncFetch(state.rpcUrl, {
             body: JSON.stringify({
               method: "query",
@@ -326,7 +332,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                 { value: state.contractAddress, type: "$ref" },
               ];
               const isCheck = false;
-
               checkType.forEach((typeItem) => {
                 if (isCheck == false) {
                   asyncFetch(state.rpcUrl, {
@@ -350,7 +355,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                     method: "POST",
                   }).then((res) => {
                     const isExist = false;
-
                     const uS = (argName, type, value) => {
                       const arg = {
                         name: argName,
@@ -362,7 +366,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                       if (type == "enum") {
                         arg.enum = value;
                       }
-
                       abiMethod[fIndex].params.args.forEach((item) => {
                         if (item.name == argName) {
                           isExist = true;
@@ -392,7 +395,6 @@ const getArgsFromMethod = (fName, fIndex) => {
                       if (ftch.includes("the account ID")) {
                         uS(argName, "$ref", state.contractAddress);
                       }
-
                       if (
                         ftch.includes("invalid type: sequence, expected u64")
                       ) {
@@ -468,7 +470,6 @@ const getArgsFromMethod = (fName, fIndex) => {
             if (res.body.result.result) {
               clearAsyncInterval(getArg);
             }
-
             if (strErr) {
               if (strErr.includes("Invalid register")) {
                 abiMethod[fIndex].kind = "call";
@@ -527,7 +528,6 @@ const getArgsFromMethod = (fName, fIndex) => {
           if (countLoop == 20) {
             clearAsyncInterval(getArg);
           }
-
           State.update({
             messProccses: `Scanning Method : "${fName}"`,
           });
@@ -753,7 +753,7 @@ return (
           <div class="card-header">
             <div class="container">
               <div class="row">
-                <div class="col-sm-8 pt-2">
+                <div class="col-sm-8 pt-3">
                   <h6>
                     {functions.name}
                     <span class="text-info">
@@ -787,13 +787,13 @@ return (
                     </div>
                   </div>
                   <div class="form-group row">
-                    <h6 class="col-sm-4 col-form-label">Button Label</h6>
+                    <h6 class="col-sm-4 col-form-label">Method Class</h6>
                     <div class="col-sm-6">
                       <input
-                        placeholder="Button Label"
+                        placeholder="Method Class"
                         class="form-control"
-                        defaultValue={args.button || ""}
-                        onChange={(e) => cMLabel(e, fIndex, "button")}
+                        defaultValue={functions.className || ""}
+                        onChange={(e) => cMLabel(e, fIndex, "className")}
                       />
                     </div>
                   </div>
@@ -804,12 +804,15 @@ return (
                   <h6>Arguments</h6>
                 </div>
                 <div class="form-group col-md-2">
-                  <h6>Label</h6>
-                </div>
-                <div class="form-group col-md-2">
                   <h6>Type</h6>
                 </div>
+                <div class="form-group col-md-3">
+                  <h6>Value</h6>
+                </div>
                 <div class="form-group col-md-2">
+                  <h6>Label</h6>
+                </div>
+                <div class="form-group col-md-1">
                   <button
                     class="btn btn-secondary btn-sm"
                     onClick={(e) => onCreateArgs(functions.name, fIndex)}
@@ -840,14 +843,7 @@ return (
                           onChange={(e) => cAD(e, fIndex, argIndex, "name")}
                         />
                       </div>
-                      <div class="form-group col-md-2">
-                        <input
-                          placeholder="Label"
-                          class="form-control"
-                          defaultValue={args.label || ""}
-                          onChange={(e) => cAD(e, fIndex, argIndex, "label")}
-                        />
-                      </div>
+
                       <div class="form-group col-md-2">
                         <select
                           defaultValue={args.type_schema.type}
@@ -863,7 +859,7 @@ return (
                           <option value="$ref">AccountID</option>
                         </select>
                       </div>
-                      <div class="form-group col-md-4">
+                      <div class="form-group col-md-3">
                         {args.type_schema.type == "string" ||
                         args.type_schema.type == "$ref" ||
                         args.type_schema.type == "integer" ||
@@ -880,7 +876,7 @@ return (
                         )}
                         {args.type_schema.type == "boolean" ? (
                           <select
-                            defaultValue={args.type_schema.type}
+                            defaultValue={args.value}
                             class="form-control"
                             onChange={(e) => cAD(e, fIndex, argIndex, "value")}
                           >
@@ -892,7 +888,7 @@ return (
                         )}
                         {args.type_schema.type == "enum" ? (
                           <select
-                            defaultValue={args.type_schema.type}
+                            defaultValue={args.value}
                             class="form-control"
                             onChange={(e) => cAD(e, fIndex, argIndex, "value")}
                           >
@@ -906,6 +902,24 @@ return (
                         )}
                       </div>
                       <div class="form-group col-md-2">
+                        <input
+                          placeholder="Label"
+                          class="form-control"
+                          defaultValue={args.label || ""}
+                          onChange={(e) => cAD(e, fIndex, argIndex, "label")}
+                        />
+                      </div>
+                      <div class="form-group col-md-2">
+                        <input
+                          placeholder="class"
+                          class="form-control"
+                          defaultValue={args.className || ""}
+                          onChange={(e) =>
+                            cAD(e, fIndex, argIndex, "className")
+                          }
+                        />
+                      </div>
+                      <div class="form-group col-md-1">
                         <button
                           type="button"
                           onClick={(e) => cAD(e, fIndex, argIndex, "remove")}
@@ -981,14 +995,51 @@ return (
             ) : (
               ""
             )}
-            <button
-              class="btn btn-dark btn-sm mt-2"
-              onClick={(e) =>
-                onBtnClickCall(functions.name, functions.kind, fIndex)
-              }
-            >
-              {functions.kind == "view" ? "View" : "Call"}
-            </button>
+            <div class="container pt-3">
+              <div class="row">
+                <div class="form-group col-md-2">
+                  <h6>Button</h6>
+                </div>
+                <div class="form-group col-md-4">
+                  <h6>Button Label </h6>
+                </div>
+                <div class="form-group col-md-4">
+                  <h6>Button Class</h6>
+                </div>
+                <div class="form-group col-md-2"></div>
+              </div>
+            </div>
+            <div class="container pb-2">
+              <div class="row">
+                <div class="form-group col-md-2">
+                  <button
+                    class="btn btn-dark btn-sm mt-2"
+                    onClick={(e) =>
+                      onBtnClickCall(functions.name, functions.kind, fIndex)
+                    }
+                  >
+                    {functions.kind == "view" ? "View" : "Call"}
+                  </button>
+                </div>
+                <div class="form-group col-md-4">
+                  <input
+                    placeholder="Button Label"
+                    class="form-control"
+                    defaultValue={functions.button || ""}
+                    onChange={(e) => cMLabel(e, fIndex, "button")}
+                  />
+                </div>
+                <div class="form-group col-md-4">
+                  <input
+                    placeholder="Button Class"
+                    class="form-control"
+                    defaultValue={functions.classButton || ""}
+                    onChange={(e) => cMLabel(e, fIndex, "classButton")}
+                  />
+                </div>
+                <div class="form-group col-md-2"></div>
+              </div>
+            </div>
           </div>
         </div>
       ))}
