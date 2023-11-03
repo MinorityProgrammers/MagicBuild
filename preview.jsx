@@ -28,7 +28,11 @@ const onInputChangeContractArg = (obj) => {
 
   State.update({ contractAbiArg: data });
 };
-
+const cDeposit = (e, fIndex) => {
+  const data = state.contractAbiCall;
+  data[fIndex].deposit = e.target.value;
+  State.update({ contractAbiArg: data });
+};
 const onBtnClickCall = (fName, action, fIndex) => {
   const argsArr = [];
   const data = state.contractAbiArg;
@@ -103,8 +107,12 @@ const onBtnClickCall = (fName, action, fIndex) => {
         state.contractAddress,
         abiCall[fIndex].name,
         args,
-        abiCall[fIndex].gas,
-        abiCall[fIndex].deposit
+        abiCall[fIndex].gasUnit == "near"
+          ? abiCall[fIndex].gas * Math.pow(10, 24)
+          : abiCall[fIndex].gas,
+        abiCall[fIndex].depositUnit == "near"
+          ? abiCall[fIndex].deposit * Math.pow(10, 24)
+          : abiCall[fIndex].deposit
       );
     }
   }
@@ -152,9 +160,13 @@ loadData();
 
 const notLoggedInWarning = <p class="text-center py-2"> Login to Use BOS </p>;
 
+const Wrapper = styled.div`
+ ${props.cssStyle}
+`;
+console.log("props", props.cssStyle);
 return (
   <>
-    <div class="container">
+    <Wrapper class="container">
       {context.accountId ? contractForm : notLoggedInWarning}
       <h3 class="text-center">{state.contractAddress}</h3>
       {state.contractError}
@@ -310,7 +322,7 @@ return (
                 ""
               )}
               <button
-                className={`btn btn-primary ${functions.classButton}`}
+                className={`btn  btn-primary ${functions.classButton}`}
                 data-action="view"
                 data-name={functions.name}
                 onClick={(e) =>
@@ -334,7 +346,9 @@ return (
                 functions.params.args.map((args) => {
                   return (
                     <div className={`form-group pb-2 ${args.className}`}>
-                      <label>{args.name}</label>
+                      <label>
+                        {args.label.length > 0 ? args.label : args.name}
+                      </label>
                       {args.type_schema.type == "string" ||
                       args.type_schema.type == "$ref" ||
                       args.type_schema.type == "integer" ||
@@ -440,6 +454,23 @@ return (
                     </div>
                   );
                 })}
+              {functions.selfInputDeposit && (
+                <div className={`form-group pb-2`}>
+                  <label>
+                    {functions.labelDeposit.length > 0
+                      ? functions.labelDeposit
+                      : "Deposit"}
+                  </label>
+                  <input
+                    type="text"
+                    value={functions.deposit}
+                    defaultValue={functions.deposit}
+                    onChange={(e) => cDeposit(e, fIndex)}
+                    class="form-control "
+                  />
+                </div>
+              )}
+
               {state.response[functions.name] ? (
                 <p class="card-text">{state.response[functions.name]}</p>
               ) : (
@@ -458,6 +489,6 @@ return (
             </div>
           </div>
         ))}
-    </div>
+    </Wrapper>
   </>
 );
