@@ -6,15 +6,17 @@ State.init({
   rpcUrl: "https://rpc.near.org/",
   archivalRpc: "https://archival-rpc.mainnet.near.org",
   nearBlockRpc: "https://api.nearblocks.io/",
-  fName,
+  fName: "",
   fAction: "view",
-  fLabel,
+  fLabel: "",
   cMerr,
   res,
   cAerr,
   messProccses: "",
   totalProcess: 0,
   endprocess: 1,
+  designMode: false,
+  cssStyle: "",
 });
 
 const header = {
@@ -60,9 +62,7 @@ const clearAsyncInterval = (intervalIndex) => {
     });
   }
 };
-const updateContractAddress = (e) => {
-  State.update({ contractAddress: data.toLowerCase() });
-};
+
 const cFunc = (e, type) => {
   const data = e.target.value;
   if (type == "name") State.update({ fName: data });
@@ -88,17 +88,23 @@ const onCreateArgs = (fName, fIndex) => {
   abiMethod[fIndex].params.args.push(arg);
   State.update({ cMethod: abiMethod });
 };
+const onSwitchChangeDesignMode = () => {
+  State.update({ designMode: !state.designMode });
+};
 const cMLabel = (e, fIdx, type) => {
   const value = e.target.value;
   const a = state.cMethod;
   if (type == "method") a[fIdx].label = value;
   if (type == "className") a[fIdx].className = value;
   if (type == "classButton") a[fIdx].classButton = value;
+  if (type == "labelDeposit") a[fIdx].labelDeposit = value;
   if (type == "button") a[fIdx].button = value;
-  if (type == "gas") a[fIdx].gas = parseInt(value) || 0;
-  if (type == "deposit") a[fIdx].deposit = parseInt(value) || 0;
+  if (type == "gas") a[fIdx].gas = value || 0;
+  if (type == "deposit") a[fIdx].deposit = value || 0;
   if (type == "remove") a.splice(fIdx, 1);
-  console.log("a", a);
+  if (type == "depositUnit") a[fIdx].depositUnit = value;
+  if (type == "gasUnit") a[fIdx].gasUnit = value;
+  if (type == "selfInputDeposit") a[fIdx].selfInputDeposit = e.target.checked;
   State.update({ cMethod: a });
 };
 const cAD = (e, fIdx, aIdx, type) => {
@@ -113,22 +119,22 @@ const cAD = (e, fIdx, aIdx, type) => {
       a[fIdx].params.args[aIdx].value = parseInt(value);
     }
     if (a[fIdx].params.args[aIdx].type_schema.type == "array") {
-      a[fIdx].params.args[aIdx].value = value.split("|"); //check valid
+      a[fIdx].params.args[aIdx].value = value.split("|");
     }
     if (a[fIdx].params.args[aIdx].type_schema.type == "boolean") {
       a[fIdx].params.args[aIdx].value = Boolean(value);
     }
     if (a[fIdx].params.args[aIdx].type_schema.type == "json") {
-      a[fIdx].params.args[aIdx].value = JSON.parse(value); //check valid
+      a[fIdx].params.args[aIdx].value = JSON.parse(value);
     }
     if (a[fIdx].params.args[aIdx].type_schema.type == "string") {
-      a[fIdx].params.args[aIdx].value = value; //check valid
+      a[fIdx].params.args[aIdx].value = value;
     }
     if (a[fIdx].params.args[aIdx].type_schema.type == "enum") {
-      a[fIdx].params.args[aIdx].value = value; //check valid
+      a[fIdx].params.args[aIdx].value = value;
     }
     if (a[fIdx].params.args[aIdx].type_schema.type == "$ref") {
-      a[fIdx].params.args[aIdx].value = value; //check account valid
+      a[fIdx].params.args[aIdx].value = value;
     }
   }
   if (type == "remove") a[fIdx].params.args.splice(aIdx, 1);
@@ -144,13 +150,17 @@ const onCreateMethod = () => {
       button: "",
       className: "",
       classButton: "",
+      labelDeposit: "",
       export: true,
       params: {
         serialization_type: "json",
         args: [],
       },
       deposit: 0,
+      depositUnit: "near",
+      selfInputDeposit: false,
       gas: 30000000000000,
+      gasUnit: "yoctoNEAR",
     };
     const abiMethod = state.cMethod;
     const isExistFunction = false;
@@ -219,6 +229,11 @@ const getMethodFromSource = () => {
         const method = {
           name: item,
           kind: "view",
+          label: "",
+          button: "",
+          className: "",
+          classButton: "",
+          labelDeposit: "",
           export: true,
           params: {
             serialization_type: "json",
@@ -226,6 +241,11 @@ const getMethodFromSource = () => {
           },
           deposit: 0,
           gas: 30000000000000,
+          deposit: 0,
+          depositUnit: "near",
+          selfInputDeposit: false,
+          gas: 30000000000000,
+          gasUnit: "yoctoNEAR",
         };
         if (res.body.txns.length > 0) {
           const isScs = false;
@@ -542,6 +562,10 @@ const getArgsFromMethod = (fName, fIndex) => {
       }
     });
 };
+const cCSS = (e) => {
+  State.update({ cssStyle: e.target.value });
+};
+
 const onBtnClickCall = (fName, action, fIndex) => {
   const abiMethod = state.cMethod;
   const argMap = abiMethod[fIndex].params.args.map(({ name, value }) => ({
@@ -602,8 +626,12 @@ const onBtnClickCall = (fName, action, fIndex) => {
         state.contractAddress,
         abiMethod[fIndex].name,
         args,
-        abiMethod[fIndex].gas,
-        abiMethod[fIndex].deposit
+        abiMethod[fIndex].gasUnit == "near"
+          ? abiMethod[fIndex].gas * Math.pow(10, 24)
+          : abiMethod[fIndex].gas,
+        abiMethod[fIndex].depositUnit == "near"
+          ? abiMethod[fIndex].deposit * Math.pow(10, 24)
+          : abiMethod[fIndex].deposit
       );
     }
   }
@@ -672,16 +700,20 @@ return (
       <div class="row">
         <div class="form-group col-md-4">
           {state.cMethod.length > 0 ? (
-            <Widget src={`${cep}/widget/export-button`} props={state} />
+            <Widget
+              src={`${cep}/widget/save-client-button`}
+              props={saveClientConfig}
+            />
           ) : (
             <>
               <label></label>
-              <button class="btn btn-primary form-control ">🔼 Export</button>
+              <button class="btn btn-primary form-control ">Save Client</button>
             </>
           )}
         </div>
+
         <div class="form-group col-md-4">
-          {state.cMethod.length > 0 ? (
+          {state && state.cMethod.length > 0 ? (
             <Widget src={`${cep}/widget/preview-button`} props={state} />
           ) : (
             <>
@@ -692,17 +724,11 @@ return (
         </div>
         <div class="form-group col-md-4">
           {state.cMethod.length > 0 ? (
-            <Widget
-              src={`${cep}/widget/save-client-button`}
-              props={saveClientConfig}
-            />
+            <Widget src={`${cep}/widget/export-button`} props={state} />
           ) : (
             <>
               <label></label>
-              <button class="btn btn-primary form-control ">
-                {" "}
-                Save Client
-              </button>
+              <button class="btn btn-primary form-control ">🔼 Export</button>
             </>
           )}
         </div>
@@ -714,6 +740,32 @@ return (
       )}
     </div>
     <br />
+    <div class="row mb-4">
+      <div class="form-group col-md-2">
+        <div class="form-check form-switch">
+          <label class="form-check-label" for="flexSwitchCheckDesginMode">
+            Design
+          </label>
+          <input
+            checked={state.designMode}
+            role="switch"
+            onChange={onSwitchChangeDesignMode}
+            class="form-check-input"
+            type="checkbox"
+            id="flexSwitchCheckDesginMode"
+          />
+        </div>
+      </div>
+      {state.designMode && (
+        <div class="form-group col-md-10">
+          <textarea
+            class="form-control"
+            placeholder="CSS"
+            onChange={(e) => cCSS(e)}
+          ></textarea>
+        </div>
+      )}
+    </div>
     <div class="row mb-4">
       <div class="form-group col-md-4">
         <h6>Method Name</h6>
@@ -774,44 +826,58 @@ return (
           <div class="card-body">
             <div class="container mb-3">
               <div class="row mb-3">
-                <div class="form-group col-md-8">
-                  <div class="form-group row mb-2">
-                    <h6 class="col-sm-4 col-form-label">Method Label</h6>
-                    <div class="col-sm-6">
-                      <input
-                        placeholder="Method Label"
-                        class="form-control"
-                        defaultValue={functions.label || ""}
-                        onChange={(e) => cMLabel(e, fIndex, "method")}
-                      />
+                {state.designMode && (
+                  <div class="form-group col-md-8">
+                    <div class="form-group row mb-2">
+                      <h6 class="col-sm-4 col-form-label">Method Label</h6>
+                      <div class="col-sm-6">
+                        <input
+                          placeholder="Method Label"
+                          class="form-control"
+                          defaultValue={functions.label || ""}
+                          onChange={(e) => cMLabel(e, fIndex, "method")}
+                        />
+                      </div>
+                    </div>
+                    <div class="form-group row">
+                      <h6 class="col-sm-4 col-form-label">Method Class</h6>
+                      <div class="col-sm-6">
+                        <input
+                          placeholder="Boostrap Class"
+                          class="form-control"
+                          defaultValue={functions.className || ""}
+                          onChange={(e) => cMLabel(e, fIndex, "className")}
+                        />
+                      </div>
                     </div>
                   </div>
-                  <div class="form-group row">
-                    <h6 class="col-sm-4 col-form-label">Method Class</h6>
-                    <div class="col-sm-6">
-                      <input
-                        placeholder="Boostrap Class"
-                        class="form-control"
-                        defaultValue={functions.className || ""}
-                        onChange={(e) => cMLabel(e, fIndex, "className")}
-                      />
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
+              {state.designMode && <hr />}
               <div class="row">
-                <div class="form-group col-md-2">
+                <div
+                  className={`form-group col-md-${
+                    state.designMode ? "2" : "4"
+                  }`}
+                >
                   <h6>Arguments</h6>
                 </div>
                 <div class="form-group col-md-2">
                   <h6>Type</h6>
                 </div>
-                <div class="form-group col-md-3">
+                <div
+                  className={`form-group col-md-${
+                    state.designMode ? "3" : "3"
+                  }`}
+                >
                   <h6>Value</h6>
                 </div>
-                <div class="form-group col-md-2">
-                  <h6>Label</h6>
-                </div>
+                {state.designMode && (
+                  <div class="form-group col-md-2">
+                    <h6>Label</h6>
+                  </div>
+                )}
+
                 <div class="form-group col-md-1">
                   <button
                     class="btn btn-secondary btn-sm"
@@ -835,17 +901,23 @@ return (
                 return (
                   <div class="container pb-2">
                     <div class="row">
-                      <div class="form-group col-md-2">
+                      <div
+                        className={`form-group col-md-${
+                          state.designMode ? "2" : "4"
+                        }`}
+                      >
                         <input
                           placeholder="Name"
                           class="form-control"
                           defaultValue={args.name || ""}
+                          value={args.name || ""}
                           onChange={(e) => cAD(e, fIndex, argIndex, "name")}
                         />
                       </div>
 
                       <div class="form-group col-md-2">
                         <select
+                          value={args.type_schema.type}
                           defaultValue={args.type_schema.type}
                           class="form-control"
                           onChange={(e) => cAD(e, fIndex, argIndex, "type")}
@@ -859,7 +931,11 @@ return (
                           <option value="$ref">AccountID</option>
                         </select>
                       </div>
-                      <div class="form-group col-md-3">
+                      <div
+                        className={`form-group col-md-${
+                          state.designMode ? "3" : "4"
+                        }`}
+                      >
                         {args.type_schema.type == "string" ||
                         args.type_schema.type == "$ref" ||
                         args.type_schema.type == "integer" ||
@@ -876,6 +952,7 @@ return (
                         )}
                         {args.type_schema.type == "boolean" ? (
                           <select
+                            value={args.value}
                             defaultValue={args.value}
                             class="form-control"
                             onChange={(e) => cAD(e, fIndex, argIndex, "value")}
@@ -888,6 +965,7 @@ return (
                         )}
                         {args.type_schema.type == "enum" ? (
                           <select
+                            value={args.value}
                             defaultValue={args.value}
                             class="form-control"
                             onChange={(e) => cAD(e, fIndex, argIndex, "value")}
@@ -901,24 +979,33 @@ return (
                           ""
                         )}
                       </div>
-                      <div class="form-group col-md-2">
-                        <input
-                          placeholder="Label"
-                          class="form-control"
-                          defaultValue={args.label || ""}
-                          onChange={(e) => cAD(e, fIndex, argIndex, "label")}
-                        />
-                      </div>
-                      <div class="form-group col-md-2">
-                        <input
-                          placeholder="Boostrap Class"
-                          class="form-control"
-                          defaultValue={args.className || ""}
-                          onChange={(e) =>
-                            cAD(e, fIndex, argIndex, "className")
-                          }
-                        />
-                      </div>
+                      {state.designMode && (
+                        <>
+                          <div class="form-group col-md-2">
+                            <input
+                              placeholder="Label"
+                              class="form-control"
+                              value={args.label}
+                              defaultValue={args.label || ""}
+                              onChange={(e) =>
+                                cAD(e, fIndex, argIndex, "label")
+                              }
+                            />
+                          </div>
+                          <div class="form-group col-md-2">
+                            <input
+                              placeholder="Boostrap Class"
+                              class="form-control"
+                              value={args.className}
+                              defaultValue={args.className || ""}
+                              onChange={(e) =>
+                                cAD(e, fIndex, argIndex, "className")
+                              }
+                            />
+                          </div>
+                        </>
+                      )}
+
                       <div class="form-group col-md-1">
                         <button
                           type="button"
@@ -932,9 +1019,11 @@ return (
                   </div>
                 );
               })}
+
             {functions.kind == "call" ? (
               <>
                 <div class="container pb-1 pt-3">
+                  <hr />
                   <div class="row">
                     <div class="form-group col-md-12">
                       <h6>Options</h6>
@@ -945,21 +1034,81 @@ return (
                   <div class="row">
                     <div class="form-group col-md-6">
                       <label>Attached deposit</label>
-                      <input
-                        type="text"
-                        defaultValue={"" + functions.deposit}
-                        onChange={(e) => cMLabel(e, fIndex, "deposit")}
-                        class="form-control"
-                      />
+                      <div class="input-group mb-3">
+                        <input
+                          type="number"
+                          min="0"
+                          value={"" + functions.deposit.toString()}
+                          defaultValue={"" + functions.deposit.toString()}
+                          onChange={(e) => cMLabel(e, fIndex, "deposit")}
+                          class="form-control "
+                        />
+                        <select
+                          class="form-select"
+                          value={functions.depositUnit}
+                          defaultValue={functions.depositUnit}
+                          onChange={(e) => cMLabel(e, fIndex, "depositUnit")}
+                        >
+                          <option value="near">Near</option>
+                          <option value="yoctoNEAR">yoctoNEAR</option>
+                        </select>
+                      </div>
+
+                      {state.designMode && (
+                        <>
+                          <div class="form-check">
+                            <input
+                              class="form-check-input"
+                              type="checkbox"
+                              checked={functions.selfInputDeposit}
+                              onChange={(e) =>
+                                cMLabel(e, fIndex, "selfInputDeposit")
+                              }
+                              id={`flexCheckDefault-${functions.name}`}
+                            />
+                            <label
+                              class="form-check-label"
+                              for={`flexCheckDefault-${functions.name}`}
+                            >
+                              Self-Input
+                            </label>
+                          </div>
+
+                          <div class="input-group mb-3">
+                            <span
+                              class="input-group-text"
+                              id={`label-deposit-${functions.name}`}
+                            >
+                              Label Deposit
+                            </span>
+                            <input
+                              type="text"
+                              class="form-control"
+                              value={functions.labelDeposit}
+                              defaultValue={functions.labelDeposit}
+                              placeholder="Label Deposit"
+                              aria-label="Label Deposit"
+                              onChange={(e) =>
+                                cMLabel(e, fIndex, "labelDeposit")
+                              }
+                              aria-describedby={`label-deposit-${functions.name}`}
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                     <div class="form-group col-md-6">
                       <label>Gas</label>
-                      <input
-                        type="text"
-                        defaultValue="30000000000000"
-                        onChange={(e) => cMLabel(e, fIndex, "gas")}
-                        class="form-control"
-                      />
+                      <div class="input-group mb-3">
+                        <input
+                          type="number"
+                          min="0"
+                          value={"" + functions.gas}
+                          defaultValue={"" + functions.gas}
+                          onChange={(e) => cMLabel(e, fIndex, "gas")}
+                          class="form-control"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1000,12 +1149,16 @@ return (
                 <div class="form-group col-md-2">
                   <h6>Button</h6>
                 </div>
-                <div class="form-group col-md-4">
-                  <h6>Button Label </h6>
-                </div>
-                <div class="form-group col-md-4">
-                  <h6>Button Class</h6>
-                </div>
+                {state.designMode && (
+                  <>
+                    <div class="form-group col-md-4">
+                      <h6>Button Label </h6>
+                    </div>
+                    <div class="form-group col-md-4">
+                      <h6>Button Class</h6>
+                    </div>
+                  </>
+                )}
                 <div class="form-group col-md-2"></div>
               </div>
             </div>
@@ -1013,7 +1166,7 @@ return (
               <div class="row">
                 <div class="form-group col-md-2">
                   <button
-                    class="btn btn-dark btn-sm mt-2"
+                    class="btn btn-primary "
                     onClick={(e) =>
                       onBtnClickCall(functions.name, functions.kind, fIndex)
                     }
@@ -1021,22 +1174,27 @@ return (
                     {functions.kind == "view" ? "View" : "Call"}
                   </button>
                 </div>
-                <div class="form-group col-md-4">
-                  <input
-                    placeholder="Button Label"
-                    class="form-control"
-                    defaultValue={functions.button || ""}
-                    onChange={(e) => cMLabel(e, fIndex, "button")}
-                  />
-                </div>
-                <div class="form-group col-md-4">
-                  <input
-                    placeholder="Boostrap Class"
-                    class="form-control"
-                    defaultValue={functions.classButton || ""}
-                    onChange={(e) => cMLabel(e, fIndex, "classButton")}
-                  />
-                </div>
+                {state.designMode && (
+                  <>
+                    <div class="form-group col-md-4">
+                      <input
+                        placeholder="Button Label"
+                        class="form-control"
+                        defaultValue={functions.button || ""}
+                        onChange={(e) => cMLabel(e, fIndex, "button")}
+                      />
+                    </div>
+                    <div class="form-group col-md-4">
+                      <input
+                        placeholder="Boostrap Class"
+                        class="form-control"
+                        defaultValue={functions.classButton || ""}
+                        onChange={(e) => cMLabel(e, fIndex, "classButton")}
+                      />
+                    </div>
+                  </>
+                )}
+
                 <div class="form-group col-md-2"></div>
               </div>
             </div>
