@@ -1,6 +1,6 @@
 State.init({
   cMethod: props.cMethod,
-  widgetName: props.widgetName || `MagicBuild-widget-form-${Date.now()}`,
+  widgetName: props.widgetName || `MagicBuild-${props.contractAddress}`,
   name: "",
   description: "",
   website: "",
@@ -14,6 +14,7 @@ State.init({
   tags,
   choose,
 });
+
 const onInputChangeWidgetName = ({ target }) => {
   State.update({ widgetName: target.value.replaceAll(" ", "-") });
   State.update({ clicked: false });
@@ -48,32 +49,34 @@ const filesOnChange = (files) => {
 };
 
 const openModal = () => {
-  State.update({ clicked: false });
-  State.update({ export: false });
   const taggedWidgets = Social.keys(`*/widget/*/metadata/tags/*`, "final");
   let tags = [];
-  Object.keys(taggedWidgets).forEach((item) => {
-    if (Object.keys(taggedWidgets[item].widget)) {
-      if (Object.keys(taggedWidgets[item].widget).length > 0) {
-        Object.keys(taggedWidgets[item].widget).forEach((item1) => {
-          if (taggedWidgets[item].widget[item1].metadata.tags) {
-            if (
-              Object.keys(
-                taggedWidgets[item].widget[item1].metadata.tags.length > 0
-              )
-            ) {
-              Object.keys(
-                taggedWidgets[item].widget[item1].metadata.tags
-              ).forEach((tag) => {
-                tags.push(tag);
-              });
+  if (Object.keys(taggedWidgets)) {
+    Object.keys(taggedWidgets).forEach((item) => {
+      if (taggedWidgets[item].widget) {
+        if (Object.keys(taggedWidgets[item].widget).length > 0) {
+          Object.keys(taggedWidgets[item].widget).forEach((item1) => {
+            if (taggedWidgets[item].widget[item1].metadata.tags) {
+              if (
+                Object.keys(taggedWidgets[item].widget[item1].metadata.tags)
+                  .length > 0
+              ) {
+                Object.keys(
+                  taggedWidgets[item].widget[item1].metadata.tags
+                ).forEach((tag) => {
+                  tags.push(tag);
+                });
+              }
             }
-          }
-        });
+          });
+        }
       }
-    }
-  });
+    });
+  }
+
   State.update({ tags: tags });
+  State.update({ clicked: false });
+  State.update({ export: false });
 };
 const exportForm = () => {
   if (!state.clicked) {
@@ -81,7 +84,7 @@ const exportForm = () => {
     const abi = {
       schema_version: "0.3.0",
       address: props.contractAddress,
-      cssStyle: props.cssStyle,
+      cssStyle: props.cssStyle.replaceAll("\n", ""),
       metadata: {
         name: "",
         version: "0.1.0",
@@ -91,17 +94,24 @@ const exportForm = () => {
         functions: [],
       },
     };
+    let tagsObj = null;
 
-    const tagsObj = state.choose.reduce((accumulator, value) => {
-      return { ...accumulator, [value]: "" };
-    }, {});
+    if (state.choose) {
+      tagsObj = state.choose.reduce((accumulator, value) => {
+        return { ...accumulator, [value]: "" };
+      }, {});
+    }
+
     const abiMethod = state.cMethod;
-    abiMethod.forEach((item) => {
-      abi.body.functions.push(item);
-    });
+    abiMethod
+      .filter((functions) => functions.export == true)
+      .forEach((item) => {
+        abi.body.functions.push(item);
+      });
     const exportListData = Social.get(
       `${context.accountId}/magicbuild/widgetList`
     );
+
     const exporttList = JSON.parse(exportListData) || [];
 
     const isExist = false;
@@ -114,6 +124,7 @@ const exportForm = () => {
     if (!isExist) {
       exporttList.push({ widgetName: state.widgetName });
     }
+    console.log("cssStyle", abi.cssStyle.replaceAll("\n", ""));
 
     const data = {
       widget: {
@@ -150,50 +161,48 @@ const exportForm = () => {
 };
 return (
   <>
-    {state.export && state.widgetName ? (
-      <>
-        <hr />
-        <h5>Export Success</h5>
-        <div class="alert alert-primary" role="alert">
-          <a
-            href={`https://near.social/${context.accountId}/widget/${state.widgetName}`}
-          >
-            {`https://near.social/${context.accountId}/widget/${state.widgetName}`}
-          </a>
-        </div>
-      </>
-    ) : (
-      <>
-        <label></label>
-        <button
-          data-bs-toggle="modal"
-          data-bs-target={`#export-${Date.now()}`}
-          class="btn btn-primary form-control "
-          onClick={openModal}
-        >
-          🔼Export
-        </button>
-        <div
-          class="modal fade"
-          id={`export-${Date.now()}`}
-          tabindex="-2"
-          aria-labelledby="exportLabel"
-          aria-hidden="true"
-        >
-          <div class="modal-dialog">
-            <div class="modal-content">
-              <div class="modal-header">
-                <h1 class="modal-title fs-5" id="exportLabel">
-                  Export Widget
-                </h1>
-                <button
-                  type="button"
-                  class="btn-close"
-                  data-bs-dismiss="modal"
-                  aria-label="Close"
-                ></button>
-              </div>
-              <div class="modal-body">
+    <label></label>
+    <button
+      data-bs-toggle="modal"
+      data-bs-target={`#export-${Date.now()}`}
+      class="btn btn-primary form-control "
+      onClick={openModal}
+    >
+      🔼Export
+    </button>
+    <div
+      class="modal fade"
+      id={`export-${Date.now()}`}
+      tabindex="-2"
+      aria-labelledby="exportLabel"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h1 class="modal-title fs-5" id="exportLabel">
+              Export Widget
+            </h1>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Close"
+            ></button>
+          </div>
+          <div class="modal-body">
+            {state.export && state.widgetName ? (
+              <>
+                <div class="alert alert-primary" role="alert">
+                  <a
+                    href={`https://near.social/${context.accountId}/widget/${state.widgetName}`}
+                  >
+                    {`https://near.social/${context.accountId}/widget/${state.widgetName}`}
+                  </a>
+                </div>
+              </>
+            ) : (
+              <>
                 <div class="form-group">
                   <label>Widget URL</label>
                   <input
@@ -261,40 +270,39 @@ return (
                 </div>
                 <div class="form-group pt-2">
                   <label>Tags</label>
-                  {state.tags.length > 0 && (
-                    <Typeahead
-                      options={state.tags}
-                      multiple
-                      onChange={(value) => {
-                        State.update({ choose: value });
-                      }}
-                      placeholder="Input tag..."
-                    />
-                  )}
-                </div>
-              </div>
-              <div class="modal-footer">
-                <button
-                  type="button"
-                  class="btn btn-secondary"
-                  data-bs-dismiss="modal"
-                >
-                  Close
-                </button>
 
-                <button
-                  type="button"
-                  disabled={state.clicked}
-                  onClick={exportForm}
-                  class="btn btn-primary"
-                >
-                  Export
-                </button>
-              </div>
-            </div>
+                  <Typeahead
+                    options={state.tags || []}
+                    multiple
+                    onChange={(value) => {
+                      State.update({ choose: value });
+                    }}
+                    placeholder="Input tag..."
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary"
+              data-bs-dismiss="modal"
+            >
+              Close
+            </button>
+
+            <button
+              type="button"
+              disabled={state.clicked}
+              onClick={exportForm}
+              class="btn btn-primary"
+            >
+              Export
+            </button>
           </div>
         </div>
-      </>
-    )}
+      </div>
+    </div>
   </>
 );
