@@ -1,16 +1,16 @@
 State.init({
-  contractAddress: props.address,
   contractAbi: props,
   contractError,
   contractAbiCall,
   contractAbiView,
   response,
   contractAbiArg: props.body.functions,
-  cssStyle: props.cssStyle,
 });
 
 const onInputChangeContractArg = (e, fName, argIndex) => {
-  const data = state.contractAbiArg;
+  const abi = state.contractAbi;
+  console.log(abi);
+  const data = abi.body.functions;
   let check = false;
   let index = null;
   let i = 0;
@@ -23,15 +23,18 @@ const onInputChangeContractArg = (e, fName, argIndex) => {
   }
   if (check) {
     data[index].params.args[argIndex].value = e.target.value;
-    State.update({ contractAbiArg: data });
+    abi.body.functions = data;
+    State.update({ contractAbi: abi });
   }
 };
 const cDeposit = (functions, e) => {
-  const data = state.contractAbiCall;
+  const abi = state.contractAbi;
+  const data = abi.body.functions;
   data.forEach((item, fIndex) => {
     if (item.name == functions.name) {
       data[fIndex].deposit = e.target.value;
-      State.update({ contractAbiArg: data });
+      abi.body.functions = data;
+      State.update({ contractAbi: abi });
     }
   });
 };
@@ -39,7 +42,8 @@ const onBtnClickCall = (functions, action) => {
   let argsArr = [];
   let i = 0;
   let indexData = 0;
-  const data = state.contractAbiArg;
+  const abi = state.contractAbi;
+  const data = abi.body.functions;
   for (const datacheck of data) {
     if (datacheck.name == functions.name) {
       indexData = i;
@@ -47,16 +51,20 @@ const onBtnClickCall = (functions, action) => {
     i++;
   }
   for (const item of data[indexData].params.args) {
-    if (item.type == "number" || item.type == "integer") {
+    console.log(item);
+    if (
+      item.type_schema.type == "number" ||
+      item.type_schema.type == "integer"
+    ) {
       item.value = parseInt(item.value);
     }
-    if (item.type == "array") {
+    if (item.type_schema.type == "array") {
       item.value = item.value.split("|");
     }
-    if (item.type == "json") {
+    if (item.type_schema.type == "json") {
       item.value = JSON.parse(item.value);
     }
-    if (item.type == "boolean") {
+    if (item.type_schema.type == "boolean") {
       item.value = Boolean(item.value);
     }
     argsArr.push(item);
@@ -67,14 +75,13 @@ const onBtnClickCall = (functions, action) => {
   argMap.forEach((item) => {
     Object.assign(args, item);
   });
-  console.log("argmap", argMap);
   if (action == "view") {
     asyncFetch("https://rpc.near.org/", {
       body: JSON.stringify({
         method: "query",
         params: {
           request_type: "call_function",
-          account_id: state.contractAddress,
+          account_id: state.contractAbi.address,
           method_name: functions.name,
           args_base64: new Buffer.from(JSON.stringify(args)).toString("base64"),
           finality: "final",
@@ -112,7 +119,7 @@ const onBtnClickCall = (functions, action) => {
     }
     if (functions.deposit > 0 || functions.gas > 30000000000000) {
       Near.call(
-        state.contractAddress,
+        state.contractAbi.address,
         functions.name,
         args,
         functions.gasUnit == "near"
@@ -127,41 +134,23 @@ const onBtnClickCall = (functions, action) => {
 };
 
 const loadData = () => {
-  const abi = {
-    schema_version: "0.3.0",
-    address: props.contractAddress || props.address,
-    metadata: {
-      name: "",
-      version: "0.1.0",
-      authors: [""],
-    },
-    body: {
-      functions: [],
-    },
-  };
-  console.log(state.contractAbiArg);
-  if (state.contractAbiArg) {
-    const abiMethod = state.contractAbiArg;
-    abiMethod.forEach((item) => {
-      abi.body.functions.push(item);
+  const abi = state.contractAbi;
+  if (abi.body.functions) {
+    const contractCall = [];
+    const contractView = [];
+    abi.body.functions.forEach((item) => {
+      if (item.kind == "call") {
+        contractCall.push(item);
+      }
+      if (item.kind == "view") {
+        contractView.push(item);
+      }
+      State.update({ contractAbiCall: contractCall });
+      State.update({ contractAbiView: contractView });
     });
-    if (abi.body.functions) {
-      const contractCall = [];
-      const contractView = [];
-      abi.body.functions.forEach((item) => {
-        if (item.kind == "call") {
-          contractCall.push(item);
-        }
-        if (item.kind == "view") {
-          contractView.push(item);
-        }
-        State.update({ contractAbiCall: contractCall });
-        State.update({ contractAbiView: contractView });
-      });
-      State.update({ contractError: null });
-    } else {
-      State.update({ contractError: "Can not parse ABI" });
-    }
+    State.update({ contractError: null });
+  } else {
+    State.update({ contractError: "Can not parse ABI" });
   }
 };
 loadData();
@@ -172,7 +161,6 @@ const WrapperPreview = styled.div`
  ${props.cssStyle}
 `;
 
-console.log("style", props.cssStyle);
 return (
   <>
     <WrapperPreview class="container">
@@ -415,9 +403,8 @@ return (
                     </label>
                     <input
                       type="text"
-                      value={functions.deposit}
                       defaultValue={functions.deposit}
-                      onChange={(e) => cDeposit(functions, e)}
+                      onBlur={(e) => cDeposit(functions, e)}
                       class="form-control "
                     />
                   </div>
