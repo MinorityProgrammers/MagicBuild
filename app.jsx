@@ -1,5 +1,4 @@
 State.init({ clientList: [], widgetList: [] });
-
 const loadData = () => {
   const clientListData = Social.get(
     `${context.accountId}/magicbuild/clientList`
@@ -206,6 +205,30 @@ return (
               </label>
             </span>
           </li>
+
+          <li class="nav-item" role="presentation">
+            <span
+              class="nav-link active"
+              id="pills-tab-help"
+              data-bs-toggle="pill"
+              data-bs-target="#pills-help"
+              type="button"
+              role="tab"
+              aria-controls="pills-help"
+              aria-selected="true"
+              class="nav-link px-3 "
+            >
+              <label class="custom-control-label" for="darkSwitch">
+                <a
+                  href="https://www.minorityprogrammers.com/"
+                  class="nav-link px-3"
+                >
+                  ℹ Built with ❤️ by
+                  <span class="fw-bold">Minority Programmers</span>
+                </a>
+              </label>
+            </span>
+          </li>
         </ul>
       </div>
     </div>
@@ -289,15 +312,6 @@ return (
                 </div>
               ))}
           </div>
-        </div>
-      </div>
-      <div class="footer mt-auto mt-3 py-3 bg-light">
-        <div class="container">
-          <a href="https://www.minorityprogrammers.com/" class="nav-link px-3">
-            {" "}
-            ℹ Built with ❤️ by
-            <span class="fw-bold">Minority Programmers</span>
-          </a>
         </div>
       </div>
     </div>
