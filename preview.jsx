@@ -29,9 +29,9 @@ const onInputChangeContractArg = (e, fName, argIndex) => {
   }
 };
 const cDeposit = (functions, e) => {
-  const data = state.contractAbiCall;
+  const data = state.contractAbiArg;
   data.forEach((item, fIndex) => {
-    if (item.name == functions.name) {
+    if (item.name == functions.name && item.kind) {
       data[fIndex].deposit = e.target.value;
       State.update({ contractAbiArg: data });
     }
@@ -49,16 +49,19 @@ const onBtnClickCall = (functions, action) => {
     i++;
   }
   for (const item of data[indexData].params.args) {
-    if (item.type == "number" || item.type == "integer") {
+    if (
+      item.type_schema.type == "number" ||
+      item.type_schema.type == "integer"
+    ) {
       item.value = parseInt(item.value);
     }
-    if (item.type == "array") {
+    if (item.type_schema.type == "array") {
       item.value = item.value.split("|");
     }
-    if (item.type == "json") {
+    if (item.type_schema.type == "json") {
       item.value = JSON.parse(item.value);
     }
-    if (item.type == "boolean") {
+    if (item.type_schema.type == "boolean") {
       item.value = Boolean(item.value);
     }
     argsArr.push(item);
@@ -417,9 +420,8 @@ return (
                     </label>
                     <input
                       type="text"
-                      value={functions.deposit}
                       defaultValue={functions.deposit}
-                      onChange={(e) => cDeposit(functions, e)}
+                      onBlur={(e) => cDeposit(functions, e)}
                       class="form-control "
                     />
                   </div>
