@@ -205,7 +205,7 @@ const getPrompt = () => {
     }),
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer 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`,
+      Authorization: `Bearer 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`,
     },
     method: "POST",
   }).then((res) => {
@@ -729,9 +729,9 @@ return (
           <h6 class="mb-2">Contract Address</h6>
           <input
             class="form-control"
-            value={state.contractAddress}
+            defaultValue={state.contractAddress}
             placeholder="Contract Address"
-            onChange={(e) => cFunc(e, "address")}
+            onBlur={(e) => cFunc(e, "address")}
           />
         </div>
         <div class="form-group col-md-2">
@@ -881,15 +881,8 @@ return (
         </div>
 
         <div class="form-group col-md-3">
-          {state.cMethod && state.cMethod.length > 0 ? (
-            <Widget
-              src={`${cep}/widget/preview-button`}
-              props={{
-                contractAddress: state.contractAddress,
-                cMethod: state.cMethod,
-                cssStyle: state.cssStyle,
-              }}
-            />
+          {state && state.cMethod.length > 0 ? (
+            <Widget src={`${cep}/widget/preview-button`} props={state} />
           ) : (
             <>
               <label></label>
@@ -940,9 +933,9 @@ return (
             <h6 class="mb-2">Type your prompt : </h6>
             <input
               class="form-control"
-              value={state.prompt}
+              defaultValue={state.prompt}
               placeholder="I want to create a modern style Christmas vibe frontend with gradient background"
-              onChange={(e) => cPrompt(e)}
+              onBlur={(e) => cPrompt(e)}
             />
           </div>
           <div class="form-group col-md-3">
@@ -979,8 +972,8 @@ return (
                         <textarea
                           style={{ height: "500px" }}
                           class="form-control"
-                          value={state.cssStyle}
-                          onChange={(e) => cCSS(e)}
+                          defaultValue={state.cssStyle}
+                          onBlur={(e) => cCSS(e)}
                         ></textarea>
                       </div>
                       <div class="modal-footer">
@@ -1017,7 +1010,7 @@ return (
                   tabindex="-1"
                   aria-labelledby="openModalPreviewLabel"
                 >
-                  <div class="modal-dialog">
+                  <div class="modal-dialog modal-lg">
                     <div class="modal-content">
                       <div class="modal-header">
                         <h1 class="modal-title fs-5" id="showCSSLabel">
@@ -1084,7 +1077,7 @@ return (
           <h6>Method Name</h6>
           <input
             type="text"
-            onChange={(e) => cFunc(e, "name")}
+            onBlur={(e) => cFunc(e, "name")}
             class="form-control"
           />
         </div>
@@ -1092,7 +1085,7 @@ return (
           <h6>Label</h6>
           <input
             type="text"
-            onChange={(e) => cFunc(e, "label")}
+            onBlur={(e) => cFunc(e, "label")}
             class="form-control"
           />
         </div>
@@ -1155,7 +1148,7 @@ return (
                             placeholder="Method Label"
                             class="form-control"
                             defaultValue={functions.label || ""}
-                            onChange={(e) => cMLabel(e, functions, "method")}
+                            onBlur={(e) => cMLabel(e, functions, "method")}
                           />
                         </div>
                       </div>
@@ -1166,7 +1159,7 @@ return (
                             placeholder="Boostrap Class"
                             class="form-control"
                             defaultValue={functions.className || ""}
-                            onChange={(e) => cMLabel(e, functions, "className")}
+                            onBlur={(e) => cMLabel(e, functions, "className")}
                           />
                         </div>
                       </div>
@@ -1230,10 +1223,7 @@ return (
                             placeholder="Name"
                             class="form-control"
                             defaultValue={args.name || ""}
-                            value={args.name || ""}
-                            onChange={(e) =>
-                              cAD(e, functions, argIndex, "name")
-                            }
+                            onBlur={(e) => cAD(e, functions, argIndex, "name")}
                           />
                         </div>
 
@@ -1266,9 +1256,10 @@ return (
                           args.type_schema.type == "json" ||
                           args.type_schema.type == "array" ? (
                             <input
-                              onChange={(e) =>
+                              onBlur={(e) =>
                                 cAD(e, functions, argIndex, "value")
                               }
+                              defaultValue={args.value || ""}
                               class="form-control"
                               type="string"
                               placeholder="Argument value"
@@ -1278,7 +1269,6 @@ return (
                           )}
                           {args.type_schema.type == "boolean" ? (
                             <select
-                              value={args.value}
                               defaultValue={args.value}
                               class="form-control"
                               onChange={(e) =>
@@ -1293,7 +1283,6 @@ return (
                           )}
                           {args.type_schema.type == "enum" ? (
                             <select
-                              value={args.value}
                               defaultValue={args.value}
                               class="form-control"
                               onChange={(e) =>
@@ -1315,9 +1304,8 @@ return (
                               <input
                                 placeholder="Label"
                                 class="form-control"
-                                value={args.label}
                                 defaultValue={args.label || ""}
-                                onChange={(e) =>
+                                onBlur={(e) =>
                                   cAD(e, functions, argIndex, "label")
                                 }
                               />
@@ -1326,9 +1314,8 @@ return (
                               <input
                                 placeholder="Boostrap Class"
                                 class="form-control"
-                                value={args.className}
                                 defaultValue={args.className || ""}
-                                onChange={(e) =>
+                                onBlur={(e) =>
                                   cAD(e, functions, argIndex, "className")
                                 }
                               />
@@ -1370,14 +1357,12 @@ return (
                           <input
                             type="number"
                             min="0"
-                            value={"" + functions.deposit.toString()}
                             defaultValue={"" + functions.deposit.toString()}
-                            onChange={(e) => cMLabel(e, functions, "deposit")}
+                            onBlur={(e) => cMLabel(e, functions, "deposit")}
                             class="form-control "
                           />
                           <select
                             class="form-select"
-                            value={functions.depositUnit}
                             defaultValue={functions.depositUnit}
                             onChange={(e) =>
                               cMLabel(e, functions, "depositUnit")
@@ -1418,11 +1403,10 @@ return (
                               <input
                                 type="text"
                                 class="form-control"
-                                value={functions.labelDeposit}
                                 defaultValue={functions.labelDeposit}
                                 placeholder="Label Deposit"
                                 aria-label="Label Deposit"
-                                onChange={(e) =>
+                                onBlur={(e) =>
                                   cMLabel(e, functions, "labelDeposit")
                                 }
                                 aria-describedby={`label-deposit-${functions.name}`}
@@ -1437,9 +1421,8 @@ return (
                           <input
                             type="number"
                             min="0"
-                            value={"" + functions.gas}
                             defaultValue={"" + functions.gas}
-                            onChange={(e) => cMLabel(e, functions, "gas")}
+                            onBlur={(e) => cMLabel(e, functions, "gas")}
                             class="form-control"
                           />
                         </div>
@@ -1513,7 +1496,7 @@ return (
                           placeholder="Button Label"
                           class="form-control"
                           defaultValue={functions.button || ""}
-                          onChange={(e) => cMLabel(e, functions, "button")}
+                          onBlur={(e) => cMLabel(e, functions, "button")}
                         />
                       </div>
                       <div class="form-group col-md-4">
@@ -1521,7 +1504,7 @@ return (
                           placeholder="Boostrap Class"
                           class="form-control"
                           defaultValue={functions.classButton || ""}
-                          onChange={(e) => cMLabel(e, functions, "classButton")}
+                          onBlur={(e) => cMLabel(e, functions, "classButton")}
                         />
                       </div>
                     </>
